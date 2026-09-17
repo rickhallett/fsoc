@@ -6,7 +6,8 @@ ladder, wearing an fsociety mask.
 
 **The surface is a terminal, not an app.** You get a real shell inside a
 Docker "world" and pivot node to node yourself (`ssh`), exactly like the real
-thing. The screen is a raw monochrome PTY sitting in a dark frame; the story
+thing. The screen is a real PTY in a dark frame - the box ships with a themed shell
+(coloured prompt, tuned ls colours), rendered faithfully. The story
 arrives as comms from a handler and narration at the seams. No menus, no
 panels, no progress bars - the tool recedes.
 
@@ -46,7 +47,7 @@ a wargame no matter how it's dressed.
 |---|---|
 | `world/` | One parameterized Dockerfile + provisioning: a Debian box with real `<prefix>0..N` users, planted puzzle files, `sshd` on 2220. `USER_PREFIX`/`PASS_DIR` pick the skin's naming. |
 | `campaigns/<name>/` | A campaign: `campaign.toml` (identity + world coords), `levels.toml` (34 objectives + hint ladder + spoiler), `theme.toml` (palette, comms voice, handler). |
-| `tui/` | The Rust front-end: a real PTY terminal (`portable-pty` + `vt100`) rendered monochrome in a dark frame, with a comms feed. It watches your prompt to know which node you're on and feeds you the matching objective. |
+| `tui/` | The Rust front-end: a real PTY terminal (`portable-pty` + `vt100`) rendered faithfully (the box's own colours) in a dark frame, with a comms feed. It watches your prompt to know which node you're on and feeds you the matching objective. |
 
 ## Quick start
 

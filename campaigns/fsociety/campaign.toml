@@ -7,3 +7,4 @@ pass_dir = "/etc/node_pass"
 container = "wargamezr-fsociety"
 image = "wargamezr-fsociety:slice"
 max_level = 11
+hostname = "ecorp"

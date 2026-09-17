@@ -13,6 +13,7 @@ PREFIX    = $(call val,user_prefix)
 PASS_DIR  = $(call val,pass_dir)
 CONTAINER = $(call val,container)
 IMAGE     = $(call val,image)
+HOSTN     = $(call val,hostname)
 MAX_LEVEL = $(call num,max_level)
 PORT     ?= 2220
 
@@ -36,7 +37,7 @@ world-build:
 
 world-up: world-build
 	-docker rm -f $(CONTAINER) 2>/dev/null
-	docker run -d --name $(CONTAINER) -p $(PORT):2220 $(IMAGE)
+	docker run -d --name $(CONTAINER) $(if $(HOSTN),--hostname $(HOSTN),) -p $(PORT):2220 $(IMAGE)
 	@echo "World up ($(CAMPAIGN)). ssh $(PREFIX)0@localhost -p $(PORT)  (password: $(PREFIX)0)"
 
 world-down:

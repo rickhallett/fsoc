@@ -1,7 +1,7 @@
 //! wargamezr - a terminal-native, self-hosted Linux wargame.
 //!
 //! The surface *is* a terminal: a real PTY into the game-world container,
-//! rendered as a raw monochrome screen sitting in a dark frame. You live at
+//! rendered faithfully (the box's own colours) in a dark frame. You live at
 //! the prompt and pivot node to node yourself (ssh). The story arrives as
 //! comms from a handler and narration at the seams - no menus, no panels,
 //! no progress bars. The tool recedes.
@@ -14,7 +14,7 @@ use config::{CampaignConfig, Theme};
 use model::{Campaign, Level};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Modifier, Style};
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Paragraph, Wrap};
 use ratatui::{DefaultTerminal, Frame};
@@ -271,21 +271,22 @@ fn key_to_bytes(key: &ratatui::crossterm::event::KeyEvent) -> Option<Vec<u8>> {
     })
 }
 
-/// Scan the visible screen for the last `<prefix><digits>@` and return the
-/// digits - i.e. which node's prompt we're looking at.
+/// Read the current node from the *prompt* - the last line that begins with
+/// `<prefix><digits>@`. Anchoring to the line start means a typed command like
+/// `ssh node1@localhost` doesn't count (that `node1@` isn't at column 0); only
+/// the shell prompt does, so the objective changes only when you actually land.
 fn find_user(contents: &str, prefix: &str) -> Option<u32> {
     let mut last = None;
-    let mut idx = 0;
-    while let Some(pos) = contents[idx..].find(prefix) {
-        let start = idx + pos;
-        let after = &contents[start + prefix.len()..];
-        let digits: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
-        if !digits.is_empty() && after[digits.len()..].starts_with('@') {
-            if let Ok(n) = digits.parse::<u32>() {
-                last = Some(n);
+    for line in contents.lines() {
+        let s = line.trim_start();
+        if let Some(after) = s.strip_prefix(prefix) {
+            let digits: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
+            if !digits.is_empty() && after[digits.len()..].starts_with('@') {
+                if let Ok(n) = digits.parse::<u32>() {
+                    last = Some(n);
+                }
             }
         }
-        idx = start + prefix.len();
     }
     last
 }
@@ -347,24 +348,33 @@ fn render_comms(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(p, area);
 }
 
+/// Convert a vt100 colour to a ratatui one, mapping "default" to the theme.
+fn conv(c: vt100::Color, dflt: Color) -> Color {
+    match c {
+        vt100::Color::Default => dflt,
+        vt100::Color::Idx(i) => Color::Indexed(i),
+        vt100::Color::Rgb(r, g, b) => Color::Rgb(r, g, b),
+    }
+}
+
 fn render_term(f: &mut Frame, area: Rect, app: &App) {
     let t = &app.theme;
     let screen = app.term.screen();
     let (rows, cols) = screen.size();
     let (crow, ccol) = screen.cursor_position();
     let blink = (app.tick / 15) % 2 == 0;
-    let body = Style::default().fg(t.fg()).bg(t.bg());
-    let cursor = Style::default().fg(t.bg()).bg(t.accent());
 
     let mut lines: Vec<Line> = Vec::with_capacity(rows as usize);
     for r in 0..rows {
         let mut spans: Vec<Span> = Vec::new();
         let mut run = String::new();
+        let mut run_style: Option<Style> = None;
+
         for c in 0..cols {
-            let ch = screen
-                .cell(r, c)
-                .map(|cell| {
-                    let s = cell.contents();
+            let cell = screen.cell(r, c);
+            let ch = cell
+                .map(|c| {
+                    let s = c.contents();
                     if s.is_empty() {
                         " ".to_string()
                     } else {
@@ -372,21 +382,46 @@ fn render_term(f: &mut Frame, area: Rect, app: &App) {
                     }
                 })
                 .unwrap_or_else(|| " ".to_string());
-            if blink && r == crow && c == ccol {
-                if !run.is_empty() {
-                    spans.push(Span::styled(std::mem::take(&mut run), body));
+
+            // faithfully carry the box's own colours/attrs, graded to the theme
+            let mut fg = cell.map(|c| conv(c.fgcolor(), t.fg())).unwrap_or_else(|| t.fg());
+            let mut bg = cell.map(|c| conv(c.bgcolor(), t.bg())).unwrap_or_else(|| t.bg());
+            let mut modifier = Modifier::empty();
+            if let Some(c) = cell {
+                if c.inverse() {
+                    std::mem::swap(&mut fg, &mut bg);
                 }
-                spans.push(Span::styled(ch, cursor));
-            } else {
-                run.push_str(&ch);
+                if c.bold() {
+                    modifier |= Modifier::BOLD;
+                }
+                if c.italic() {
+                    modifier |= Modifier::ITALIC;
+                }
+                if c.underline() {
+                    modifier |= Modifier::UNDERLINED;
+                }
             }
+            let is_cursor = blink && r == crow && c == ccol;
+            let style = if is_cursor {
+                Style::default().fg(t.bg()).bg(t.accent())
+            } else {
+                Style::default().fg(fg).bg(bg).add_modifier(modifier)
+            };
+
+            if run_style != Some(style) {
+                if let Some(s) = run_style.take() {
+                    spans.push(Span::styled(std::mem::take(&mut run), s));
+                }
+                run_style = Some(style);
+            }
+            run.push_str(&ch);
         }
-        if !run.is_empty() {
-            spans.push(Span::styled(run, body));
+        if let Some(s) = run_style {
+            spans.push(Span::styled(run, s));
         }
         lines.push(Line::from(spans));
     }
-    let p = Paragraph::new(Text::from(lines)).style(body);
+    let p = Paragraph::new(Text::from(lines)).style(Style::default().bg(t.bg()));
     f.render_widget(p, area);
 }
 

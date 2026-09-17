@@ -6,3 +6,4 @@ pass_dir = "/etc/bandit_pass"
 container = "wargamezr-bandit"
 image = "wargamezr-bandit:slice"
 max_level = 11
+hostname = "otw"

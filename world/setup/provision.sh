@@ -37,6 +37,10 @@ done
 
 for n in $(seq 0 "$MAX_LEVEL"); do
     chmod 755 "/home/${PREFIX}${n}"
+    # give every player shell a themed prompt / ls colours
+    if [ -f /opt/wargame/setup/theme.bashrc ]; then
+        cat /opt/wargame/setup/theme.bashrc >> "/home/${PREFIX}${n}/.bashrc"
+    fi
 done
 
 # only the game users may log in over SSH
