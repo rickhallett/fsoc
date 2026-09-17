@@ -1,0 +1,514 @@
+# Bandit campaign — level definitions.
+# Faithful recreation of the OverTheWire "Bandit" wargame goals.
+# Passwords are generated fresh at container build time; nothing here
+# reproduces OverTheWire's own answers. `solution` is the intended
+# technique, shown only when the player asks to reveal it.
+
+campaign = "bandit"
+
+[[level]]
+n = 0
+title = "Level 0 — Getting in"
+goal = """
+The goal of this level is for you to log into the game using SSH.
+
+The host is localhost, on port 2220. The username is bandit0 and the
+password is bandit0. Once logged in, read the Level 1 brief to find
+out how to beat it.
+"""
+commands = ["ssh"]
+hints = [
+  "SSH takes a user@host argument and a -p flag for the port.",
+  "ssh bandit0@localhost -p 2220",
+]
+solution = "ssh bandit0@localhost -p 2220   # password: bandit0"
+
+[[level]]
+n = 1
+title = "Level 0 → 1 — reading a file"
+goal = """
+The password for the next level is stored in a file called readme
+located in the home directory.
+"""
+commands = ["ls", "cd", "cat", "file", "du", "find"]
+hints = [
+  "You start in your home directory. `ls` shows what's there.",
+  "`cat readme` prints the file to your terminal.",
+]
+solution = "cat readme"
+
+[[level]]
+n = 2
+title = "Level 1 → 2 — a file named dash"
+goal = """
+The password for the next level is stored in a file called -
+located in the home directory.
+"""
+commands = ["ls", "cd", "cat", "file", "du", "find"]
+hints = [
+  "A lone `-` means 'standard input' to most programs, not a filename.",
+  "Give it a path so it can't be mistaken for a flag: cat ./-",
+]
+solution = "cat ./-"
+
+[[level]]
+n = 3
+title = "Level 2 → 3 — spaces in the name"
+goal = """
+The password for the next level is stored in a file called
+'--spaces in this filename--' located in the home directory.
+"""
+commands = ["ls", "cd", "cat", "file", "du", "find"]
+hints = [
+  "Spaces split arguments. Quote the whole name or escape each space.",
+  "It also starts with --, which looks like a long option; prefix with ./",
+  "Tab completion escapes it for you: type `cat ./--` then press Tab.",
+]
+solution = "cat './--spaces in this filename--'"
+
+[[level]]
+n = 4
+title = "Level 3 → 4 — hidden file"
+goal = """
+The password for the next level is stored in a hidden file in the
+inhere directory.
+"""
+commands = ["ls", "cd", "cat", "file", "du", "find"]
+hints = [
+  "Files starting with a dot don't show up in a plain `ls`.",
+  "`ls -la inhere` reveals them. This one's name starts with dots.",
+]
+solution = "cat inhere/...Hiding-From-You"
+
+[[level]]
+n = 5
+title = "Level 4 → 5 — the human-readable one"
+goal = """
+The password for the next level is stored in the only human-readable
+file in the inhere directory.
+Tip: if your terminal gets messed up, run `reset`.
+"""
+commands = ["ls", "cd", "cat", "file", "du", "find"]
+hints = [
+  "`file` reports what kind of data each file holds.",
+  "The names start with -, so check them with ./*: file ./*",
+  "Read the one reported as 'ASCII text'.",
+]
+solution = "cd inhere && file ./* && cat ./-file07"
+
+[[level]]
+n = 6
+title = "Level 5 → 6 — find by size"
+goal = """
+The password is in a file somewhere under the inhere directory that is:
+  - human-readable
+  - 1033 bytes in size
+  - not executable
+"""
+commands = ["ls", "cd", "cat", "file", "du", "find"]
+hints = [
+  "Too many files to check by hand. `find` filters on properties.",
+  "find has -size (use c for bytes), -type f, and ! -executable.",
+  "find inhere -type f -size 1033c ! -executable",
+]
+solution = "find inhere -type f -size 1033c ! -executable -exec cat {} \\;"
+
+[[level]]
+n = 7
+title = "Level 6 → 7 — find by owner"
+goal = """
+The password is stored somewhere on the server and is:
+  - owned by user bandit7
+  - owned by group bandit6
+  - 33 bytes in size
+"""
+commands = ["ls", "cd", "cat", "file", "du", "find", "grep"]
+hints = [
+  "Search the whole filesystem with `find /`; expect Permission denied noise.",
+  "find supports -user and -group. Hide errors with 2>/dev/null.",
+  "find / -user bandit7 -group bandit6 -size 33c 2>/dev/null",
+]
+solution = "find / -user bandit7 -group bandit6 -size 33c 2>/dev/null | xargs cat"
+
+[[level]]
+n = 8
+title = "Level 7 → 8 — grep the haystack"
+goal = """
+The password is in the file data.txt, next to the word 'millionth'.
+"""
+commands = ["grep", "sort", "uniq", "strings", "base64", "tr"]
+hints = [
+  "The file is huge. Don't read it, search it.",
+  "grep millionth data.txt",
+]
+solution = "grep millionth data.txt"
+
+[[level]]
+n = 9
+title = "Level 8 → 9 — the unique line"
+goal = """
+The password is in data.txt and is the only line of text that
+occurs exactly once.
+"""
+commands = ["grep", "sort", "uniq", "strings"]
+hints = [
+  "`uniq -u` prints lines that appear only once...",
+  "...but uniq only compares adjacent lines, so sort first.",
+  "sort data.txt | uniq -u",
+]
+solution = "sort data.txt | uniq -u"
+
+[[level]]
+n = 10
+title = "Level 9 → 10 — strings"
+goal = """
+The password is in data.txt, in one of the few human-readable
+strings, preceded by several '=' characters.
+"""
+commands = ["grep", "strings", "sort", "uniq"]
+hints = [
+  "The file is mostly binary. `strings` extracts printable runs.",
+  "strings data.txt | grep ===",
+]
+solution = "strings data.txt | grep '==='"
+
+[[level]]
+n = 11
+title = "Level 10 → 11 — base64"
+goal = """
+The password is in data.txt, which contains base64 encoded data.
+"""
+commands = ["base64", "grep", "strings"]
+hints = [
+  "base64 is an encoding, not encryption — trivially reversible.",
+  "base64 -d data.txt",
+]
+solution = "base64 -d data.txt"
+
+[[level]]
+n = 12
+title = "Level 11 → 12 — ROT13"
+goal = """
+The password is in data.txt, where all letters (a-z, A-Z) have been
+rotated by 13 positions.
+"""
+commands = ["tr", "cat"]
+hints = [
+  "This is ROT13. Rotating by 13 twice returns the original.",
+  "tr maps character sets: tr 'A-Za-z' 'N-ZA-Mn-za-m'",
+]
+solution = "cat data.txt | tr 'A-Za-z' 'N-ZA-Mn-za-m'"
+
+[[level]]
+n = 13
+title = "Level 12 → 13 — matryoshka"
+goal = """
+The password is in data.txt, a hexdump of a file that has been
+repeatedly compressed. Work in a directory under /tmp (mktemp -d).
+"""
+commands = ["xxd", "file", "gzip", "bzip2", "tar", "mktemp", "cp", "mv"]
+hints = [
+  "Your home is read-only. Work in $(mktemp -d).",
+  "xxd -r turns a hexdump back into binary.",
+  "Loop: file it; gzip->gzip -d, bzip2->bzip2 -d, tar->tar xf. Repeat until ASCII.",
+]
+solution = "d=$(mktemp -d); cp data.txt $d; cd $d; xxd -r data.txt > cur; while file cur | grep -q compressed\\|archive; do ...; done"
+
+[[level]]
+n = 14
+title = "Level 13 → 14 — ssh key"
+goal = """
+The password for bandit14 is in /etc/bandit_pass/bandit14 and can only
+be read by user bandit14. You don't get the password directly — you
+get a private SSH key. Use it to log in as bandit14.
+"""
+commands = ["ssh", "cat"]
+hints = [
+  "ssh -i <keyfile> authenticates with a private key instead of a password.",
+  "You can ssh from the game to itself: localhost, port 2220.",
+  "ssh -i sshkey.private bandit14@localhost -p 2220",
+]
+solution = "ssh -i sshkey.private bandit14@localhost -p 2220 ; cat /etc/bandit_pass/bandit14"
+
+[[level]]
+n = 15
+title = "Level 14 → 15 — netcat"
+goal = """
+Submit the current level's password to port 30000 on localhost to
+retrieve the next password.
+"""
+commands = ["nc", "cat"]
+hints = [
+  "nc opens a raw TCP connection; whatever you send goes to the server.",
+  "Your current password is in /etc/bandit_pass/bandit14.",
+  "cat /etc/bandit_pass/bandit14 | nc localhost 30000",
+]
+solution = "cat /etc/bandit_pass/bandit14 | nc localhost 30000"
+
+[[level]]
+n = 16
+title = "Level 15 → 16 — TLS netcat"
+goal = """
+Submit the current password to port 30001 on localhost using SSL/TLS.
+"""
+commands = ["openssl", "s_client", "nc"]
+hints = [
+  "Plain nc won't work: the server speaks TLS. Use openssl s_client.",
+  "openssl s_client -connect localhost:30001 -quiet",
+]
+solution = "cat /etc/bandit_pass/bandit15 | openssl s_client -connect localhost:30001 -quiet"
+
+[[level]]
+n = 17
+title = "Level 16 → 17 — port scan + key"
+goal = """
+Submit the current password to a port on localhost between 31000 and
+32000. Find which ports are open, which speak TLS, and which one
+returns the next credentials (a private key). The others just echo.
+"""
+commands = ["nmap", "openssl", "s_client", "ssh"]
+hints = [
+  "nmap -p 31000-32000 localhost lists the open ports.",
+  "Try openssl s_client on each; send the password.",
+  "The non-echoing one returns an RSA key. Save it, chmod 600, ssh -i.",
+]
+solution = "nmap -p 31000-32000 localhost; openssl s_client -connect localhost:<port> -quiet; # save key -> ssh -i"
+
+[[level]]
+n = 18
+title = "Level 17 → 18 — diff"
+goal = """
+Two files in the home directory: passwords.old and passwords.new. The
+next password is the only line that changed between them.
+"""
+commands = ["diff", "cat"]
+hints = [
+  "diff shows lines that differ between two files.",
+  "diff passwords.old passwords.new — the line marked > is the new one.",
+]
+solution = "diff passwords.old passwords.new"
+
+[[level]]
+n = 19
+title = "Level 18 → 19 — hostile .bashrc"
+goal = """
+The password is in a file 'readme' in the home directory, but someone
+modified .bashrc to log you out immediately on SSH login.
+"""
+commands = ["ssh", "cat"]
+hints = [
+  "You're kicked out because bash runs .bashrc. Avoid an interactive bash.",
+  "ssh can run a single command instead of a login shell.",
+  "ssh bandit18@localhost -p 2220 cat readme",
+]
+solution = "ssh bandit18@localhost -p 2220 cat readme"
+
+[[level]]
+n = 20
+title = "Level 19 → 20 — setuid binary"
+goal = """
+Use the setuid binary in the home directory to read the password. Run
+it with no arguments to see usage. The password is in /etc/bandit_pass.
+"""
+commands = ["ls", "cat", "id"]
+hints = [
+  "ls -l shows an 's' bit: the binary runs as its owner, bandit20.",
+  "./bandit20-do runs a command as bandit20.",
+  "./bandit20-do cat /etc/bandit_pass/bandit20",
+]
+solution = "./bandit20-do cat /etc/bandit_pass/bandit20"
+
+[[level]]
+n = 21
+title = "Level 20 → 21 — your own daemon"
+goal = """
+A setuid binary connects to a localhost port you give it, reads one
+line, and if it matches the bandit20 password, sends back the bandit21
+password. Set up a listener that serves the password.
+"""
+commands = ["nc", "cat", "jobs"]
+hints = [
+  "You need a listener that sends the bandit20 password when connected to.",
+  "nc -l -p PORT listens. Feed it via a pipe and background it with &.",
+  "cat /etc/bandit_pass/bandit20 | nc -l -p 4444 &  then  ./suconnect 4444",
+]
+solution = "cat /etc/bandit_pass/bandit20 | nc -l -p 4444 & ./suconnect 4444"
+
+[[level]]
+n = 22
+title = "Level 21 → 22 — cron I"
+goal = """
+A program runs from cron at regular intervals. Look in /etc/cron.d/
+for the config and see what command runs.
+"""
+commands = ["ls", "cat", "crontab"]
+hints = [
+  "ls /etc/cron.d/ ; cat /etc/cron.d/cronjob_bandit22",
+  "Read the script it runs — where does it write the password?",
+  "cat the file the script writes to under /tmp.",
+]
+solution = "cat /etc/cron.d/cronjob_bandit22; cat /usr/bin/cronjob_bandit22.sh; cat /tmp/<file>"
+
+[[level]]
+n = 23
+title = "Level 22 → 23 — cron II"
+goal = """
+Another cron job. This time the script derives the target filename
+from the username it runs as. Read the script and compute the path.
+"""
+commands = ["cat", "md5sum", "cut"]
+hints = [
+  "The script builds a filename from `whoami`, running as bandit23.",
+  "Compute it yourself: echo I am user bandit23 | md5sum | cut -d ' ' -f 1",
+  "cat /tmp/<that hash>",
+]
+solution = "echo I am user bandit23 | md5sum | cut -d ' ' -f1; cat /tmp/<hash>"
+
+[[level]]
+n = 24
+title = "Level 23 → 24 — write a script for cron"
+goal = """
+A cron job runs (as bandit24) every minute and executes then deletes
+any script placed in a spool directory. Write a script that copies the
+bandit24 password somewhere you can read it.
+NOTE: your script is removed once executed — keep a copy.
+"""
+commands = ["cron", "chmod", "mktemp", "cat"]
+hints = [
+  "The cron runs each script in /var/spool/bandit24/foo/ as bandit24, then deletes it.",
+  "Write a script that copies /etc/bandit_pass/bandit24 into a world-writable dir you made under /tmp.",
+  "chmod 777 the dir and the script, drop it in the spool, wait 60s.",
+]
+solution = "d=$(mktemp -d); chmod 777 $d; printf '#!/bin/bash\\ncat /etc/bandit_pass/bandit24 > %s/pass\\n' $d > $d/x.sh; chmod 777 $d/x.sh; cp $d/x.sh /var/spool/bandit24/foo/; sleep 60; cat $d/pass"
+
+[[level]]
+n = 25
+title = "Level 24 → 25 — brute force a pincode"
+goal = """
+A daemon on port 30002 gives the bandit25 password if given the
+bandit24 password and a secret 4-digit pincode. Only way in is to try
+all 10000 combinations. You don't need a new connection each time.
+"""
+commands = ["nc", "seq", "printf", "grep"]
+hints = [
+  "Talk to it first with nc to learn the input format.",
+  "Generate all 10000 lines: for i in $(seq -w 0 9999); do echo \"$p $i\"; done",
+  "Send them all down one pipe and drop the failures with grep -v Wrong.",
+]
+solution = "p=$(cat /etc/bandit_pass/bandit24); for i in $(seq -w 0 9999); do echo \"$p $i\"; done | nc localhost 30002 | grep -v Wrong"
+
+[[level]]
+n = 26
+title = "Level 25 → 26 — escape the pager"
+goal = """
+Logging in as bandit26 is easy, but its login shell isn't bash — it's
+something else that exits immediately. Find out what it is and break
+out of it.
+"""
+commands = ["ssh", "vi", "more", "less"]
+hints = [
+  "cat /etc/passwd — bandit26's shell runs a program that shows a file with `more`.",
+  "`more` only pages if the output doesn't fit; shrink your terminal window first.",
+  "Inside more, press `v` to open vi, then from vi set the shell and run it (:set shell=/bin/bash then :shell).",
+]
+solution = "shrink terminal; login triggers more; press v -> vi -> :set shell=/bin/bash -> :shell"
+
+[[level]]
+n = 27
+title = "Level 26 → 27 — grab it from vi"
+goal = """
+You have a shell (via vi). Grab the bandit27 password.
+"""
+commands = ["cat", "vi", "setuid"]
+hints = [
+  "There's a setuid binary bandit27-do in the home directory.",
+  "./bandit27-do cat /etc/bandit_pass/bandit27",
+]
+solution = "./bandit27-do cat /etc/bandit_pass/bandit27"
+
+[[level]]
+n = 28
+title = "Level 27 → 28 — git clone"
+goal = """
+A git repository lives at ssh://bandit27-git@localhost/home/bandit27-git/repo
+(port 2220). The password for bandit27-git is the bandit27 password.
+Clone it and find the password inside.
+"""
+commands = ["git", "ssh", "cat"]
+hints = [
+  "Work in a temp dir. git clone ssh://bandit27-git@localhost:2220/home/bandit27-git/repo",
+  "Look at the checked-out files (README).",
+]
+solution = "cd $(mktemp -d); git clone ssh://bandit27-git@localhost:2220/home/bandit27-git/repo; cat repo/README"
+
+[[level]]
+n = 29
+title = "Level 28 → 29 — git history"
+goal = """
+Another git repo (bandit28-git). The password may have been committed
+and then removed. Check the history.
+"""
+commands = ["git", "ssh"]
+hints = [
+  "Clone it, then `git log` to see past commits.",
+  "git show <commit> or git log -p reveals what a later commit redacted.",
+]
+solution = "git clone ...; git log -p   # find the removed password"
+
+[[level]]
+n = 30
+title = "Level 29 → 30 — git branches"
+goal = """
+Another git repo (bandit29-git). The README says no passwords in
+production — look elsewhere.
+"""
+commands = ["git", "ssh"]
+hints = [
+  "git branch -a lists all branches, including remote ones.",
+  "Check out the dev branch: git checkout dev (or git log origin/dev).",
+]
+solution = "git clone ...; git branch -a; git checkout dev; cat README.md"
+
+[[level]]
+n = 31
+title = "Level 30 → 31 — git tags"
+goal = """
+Another git repo (bandit30-git). Nothing obvious in the files, logs,
+or branches this time.
+"""
+commands = ["git", "ssh"]
+hints = [
+  "git tag lists tags. Something may be stashed in one.",
+  "git show <tag>",
+]
+solution = "git clone ...; git tag; git show secret"
+
+[[level]]
+n = 32
+title = "Level 31 → 32 — git push"
+goal = """
+Another git repo (bandit31-git). The README tells you to push a file
+to the remote to reveal the password.
+"""
+commands = ["git", "ssh"]
+hints = [
+  "Read README.md: it wants a file key.txt pushed to the master branch.",
+  "Note .gitignore may block *.txt — force add: git add -f key.txt.",
+  "Commit and git push origin master; read the server's response.",
+]
+solution = "git clone ...; echo 'May I come in?' > key.txt; git add -f key.txt; git commit -m x; git push origin master"
+
+[[level]]
+n = 33
+title = "Level 32 → 33 — uppercase shell"
+goal = """
+After all this git stuff, another shell escape. You land in a shell
+that uppercases everything you type.
+"""
+commands = ["sh", "setuid"]
+hints = [
+  "Every command is uppercased, so command names won't resolve...",
+  "...but $0 (the shell's own name) isn't uppercased. Type: $0",
+  "That gives you a normal shell as bandit33; then read the password.",
+]
+solution = "$0    # spawns a shell; then cat /etc/bandit_pass/bandit33"
