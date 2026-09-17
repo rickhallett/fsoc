@@ -1,183 +1,128 @@
-//! wargamezr - a terminal-native front-end for a self-hosted, Bandit-style
-//! Linux wargame. The mechanics live in a Docker world; the narrative and
-//! look are a swappable "campaign" (a folder of levels + theme). The plain
-//! `bandit` skin and the `fsociety` (Mr. Robot) skin drive the same world.
+//! wargamezr - a terminal-native, self-hosted Linux wargame.
+//!
+//! The surface *is* a terminal: a real PTY into the game-world container,
+//! rendered as a raw monochrome screen sitting in a dark frame. You live at
+//! the prompt and pivot node to node yourself (ssh). The story arrives as
+//! comms from a handler and narration at the seams - no menus, no panels,
+//! no progress bars. The tool recedes.
 mod config;
-mod docker;
 mod model;
-mod save;
+mod term;
 
 use anyhow::{Context, Result};
 use config::{CampaignConfig, Theme};
-use docker::World;
 use model::{Campaign, Level};
-use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
-use ratatui::crossterm::execute;
-use ratatui::crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
-};
-use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Block, List, ListItem, ListState, Paragraph, Wrap};
+use ratatui::widgets::{Block, Paragraph, Wrap};
 use ratatui::{DefaultTerminal, Frame};
-use save::Save;
-use std::io::{stdout, Write};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Command;
-use std::thread::sleep;
 use std::time::Duration;
+use term::Term;
+
+enum Kind {
+    Handler,
+    Narr,
+    Sys,
+}
+struct Comm {
+    kind: Kind,
+    text: String,
+}
 
 struct App {
+    config: CampaignConfig,
     campaign: Campaign,
     theme: Theme,
-    prefix: String,
-    word_target: String,
-    save: Save,
-    world: World,
-    world_running: bool,
-    selected: usize,
-    list_state: ListState,
-    input_mode: bool,
-    input: String,
-    show_solution: bool,
-    status: String,
+    term: Term,
+    comms: Vec<Comm>,
+    hints_used: HashMap<u32, usize>,
+    current_user: Option<u32>,
+    narr_idx: usize,
     tick: u64,
+    quit: bool,
 }
 
 impl App {
-    fn new(campaign: Campaign, theme: Theme, world: World, prefix: String) -> Self {
-        let mut list_state = ListState::default();
-        list_state.select(Some(0));
-        let world_running = world.is_running();
-        let word_target = theme.lbl("word_target", "level");
-        let status = if world_running {
-            theme.lbl("status_up", "world is up. pick a level, press enter.")
+    fn push(&mut self, kind: Kind, text: impl Into<String>) {
+        self.comms.push(Comm { kind, text: text.into() });
+        let n = self.comms.len();
+        if n > 200 {
+            self.comms.drain(0..n - 200);
+        }
+    }
+
+    fn level_by_n(&self, n: u32) -> Option<&Level> {
+        self.campaign.levels.iter().find(|l| l.n == n)
+    }
+
+    /// When logged in as user K, the job is to recover user K+1's creds -
+    /// that's the level defined with n == K+1.
+    fn job_level_n(&self) -> u32 {
+        self.current_user.unwrap_or(0) + 1
+    }
+
+    fn emit_job(&mut self) {
+        let n = self.job_level_n();
+        if let Some(lvl) = self.level_by_n(n) {
+            let title = short_title(&lvl.title);
+            let goal: String = lvl
+                .goal
+                .trim()
+                .lines()
+                .take(2)
+                .collect::<Vec<_>>()
+                .join(" ");
+            self.push(Kind::Sys, format!("-- objective: {title} --"));
+            self.push(Kind::Handler, goal);
+        }
+    }
+
+    fn on_user_change(&mut self, k: u32, first: bool) {
+        self.current_user = Some(k);
+        if first {
+            let opening: Vec<String> = self.theme.comms.opening.clone();
+            for line in opening {
+                self.push(Kind::Handler, line);
+            }
         } else {
-            theme.lbl("status_down", "world not running. `make world-up`, then r.")
-        };
-        App {
-            campaign,
-            theme,
-            prefix,
-            word_target,
-            save: Save::load(),
-            world,
-            world_running,
-            selected: 0,
-            list_state,
-            input_mode: false,
-            input: String::new(),
-            show_solution: false,
-            status,
-            tick: 0,
+            let narr = self.theme.comms.narration.clone();
+            if !narr.is_empty() {
+                let line = narr[self.narr_idx % narr.len()].clone();
+                self.narr_idx += 1;
+                self.push(Kind::Narr, line);
+            }
+            self.push(Kind::Sys, format!("-- you are now {}{} --", self.config.user_prefix, k));
         }
-    }
-
-    fn current(&self) -> &Level {
-        &self.campaign.levels[self.selected]
-    }
-
-    fn move_sel(&mut self, delta: isize) {
-        let len = self.campaign.levels.len() as isize;
-        let mut i = self.selected as isize + delta;
-        if i < 0 {
-            i = 0;
-        }
-        if i >= len {
-            i = len - 1;
-        }
-        self.selected = i as usize;
-        self.list_state.select(Some(self.selected));
-        self.show_solution = false;
-    }
-
-    fn refresh_world(&mut self) {
-        self.world_running = self.world.is_running();
-        self.status = if self.world_running {
-            self.theme.lbl("status_up", "world is up.")
-        } else {
-            self.theme.lbl("status_down", "world not running. `make world-up`.")
-        };
+        self.emit_job();
     }
 
     fn reveal_hint(&mut self) {
-        let n = self.current().n;
-        let max = self.current().hints.len();
-        self.save.reveal_hint(n, max);
-        let _ = self.save.store();
-    }
-
-    fn submit_password(&mut self) {
-        let n = self.current().n;
-        if n == 0 {
-            self.status = self.theme.lbl("status_level0", "level 0 has no password - just log in (enter).");
-            self.input.clear();
-            self.input_mode = false;
+        let n = self.job_level_n();
+        let (total, hint) = match self.level_by_n(n) {
+            Some(l) => (l.hints.len(), l.hints.clone()),
+            None => (0, vec![]),
+        };
+        if total == 0 {
             return;
         }
-        if !self.world_running {
-            self.status = self.theme.lbl("status_no_verify", "world not running - can't verify.");
-            self.input_mode = false;
-            return;
-        }
-        match self.world.verify(n, &self.input) {
-            Ok(true) => {
-                self.save.mark_solved(n, self.input.trim().to_string());
-                let _ = self.save.store();
-                let user = format!("{}{}", self.prefix, n);
-                self.status = self
-                    .theme
-                    .lbl("status_correct", "[ok] correct. {user} cleared.")
-                    .replace("{user}", &user);
-            }
-            Ok(false) => {
-                self.status = self.theme.lbl("status_wrong", "wrong password. keep digging.")
-            }
-            Err(e) => self.status = format!("verify error: {e}"),
-        }
-        self.input.clear();
-        self.input_mode = false;
-    }
-
-    fn who(&self, n: u32) -> String {
-        if n == 0 {
-            format!("{p}0 over ssh (password: {p}0)", p = self.prefix)
+        let used = self.hints_used.entry(n).or_insert(0);
+        if *used < total {
+            let h = hint[*used].clone();
+            *used += 1;
+            self.push(Kind::Handler, format!("(leak) {h}"));
         } else {
-            format!("{}{} ({} {n})", self.prefix, n - 1, self.word_target)
+            self.push(Kind::Handler, "that's everything i've got. you're on your own.");
         }
     }
 
-    fn enter_level(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
-        let n = self.current().n;
-        if !self.save.is_unlocked(n) {
-            self.status = self.theme.lbl("status_locked", "locked. clear the previous one first.");
-            return Ok(());
-        }
-        if !self.world_running {
-            self.status = self.theme.lbl("status_no_verify", "world not running - run `make world-up`.");
-            return Ok(());
-        }
-        let (cmd, args) = self.world.shell_command(n);
-        let who = self.who(n);
-        disable_raw_mode()?;
-        execute!(stdout(), LeaveAlternateScreen)?;
-        let banner = self
-            .theme
-            .lbl("enter_banner", "-- entering {who} --")
-            .replace("{who}", &who);
-        println!("\n{}\x1b[1m{banner}\x1b[0m", ansi_fg(self.theme.red()));
-        println!("\x1b[2m(find the next password, then `exit` / Ctrl-D to return)\x1b[0m\n");
-        let _ = Command::new(&cmd).args(&args).status();
-        enable_raw_mode()?;
-        execute!(stdout(), EnterAlternateScreen)?;
-        terminal.clear()?;
-        self.refresh_world();
-        self.status = self
-            .theme
-            .lbl("status_back", "back. press p to enter the password you found.")
-            .replace("{who}", &who);
-        Ok(())
+    fn show_job(&mut self) {
+        self.push(Kind::Sys, "-- the job --");
+        self.emit_job();
     }
 }
 
@@ -188,19 +133,287 @@ fn main() -> Result<()> {
     let config = CampaignConfig::load(&base.join("campaign.toml"))?;
     let campaign = Campaign::load(&base.join("levels.toml"))?;
     let theme = Theme::load(&base.join("theme.toml"))?;
-    let world = World::new(config.container(), &config.user_prefix, config.pass_dir());
 
     if std::env::args().any(|a| a == "--check") {
-        return check(&config, &campaign, &world);
+        return check(&config, &campaign);
     }
 
-    intro(&theme);
+    if !world_running(&config.container()) {
+        anyhow::bail!(
+            "world '{}' is not running.\nstart it first:  make world-up CAMPAIGN={}",
+            config.container(),
+            config.name
+        );
+    }
 
-    let mut app = App::new(campaign, theme, world, config.user_prefix.clone());
     let mut terminal = ratatui::init();
-    let res = run(&mut terminal, &mut app);
+    let res = run(&mut terminal, config, campaign, theme);
     ratatui::restore();
     res
+}
+
+fn run(
+    terminal: &mut DefaultTerminal,
+    config: CampaignConfig,
+    campaign: Campaign,
+    theme: Theme,
+) -> Result<()> {
+    let size = terminal.size()?;
+    let area = Rect::new(0, 0, size.width, size.height);
+    let (_, term_rect, _) = content_rects(area);
+    let user0 = format!("{}0", config.user_prefix);
+    let term = Term::spawn(
+        &config.container(),
+        &user0,
+        &format!("/home/{user0}"),
+        term_rect.height.max(1),
+        term_rect.width.max(1),
+    )?;
+
+    let mut app = App {
+        config,
+        campaign,
+        theme,
+        term,
+        comms: Vec::new(),
+        hints_used: HashMap::new(),
+        current_user: None,
+        narr_idx: 0,
+        tick: 0,
+        quit: false,
+    };
+
+    loop {
+        app.tick = app.tick.wrapping_add(1);
+        app.term.pump();
+
+        // learn which node we're on from the live prompt; announce pivots.
+        let contents = app.term.screen().contents();
+        if let Some(k) = find_user(&contents, &app.config.user_prefix) {
+            if app.current_user != Some(k) {
+                let first = app.current_user.is_none();
+                app.on_user_change(k, first);
+            }
+        }
+
+        // keep the PTY sized to the visible canvas
+        let a = Rect::new(0, 0, terminal.size()?.width, terminal.size()?.height);
+        let (_, tr, _) = content_rects(a);
+        app.term.resize(tr.height.max(1), tr.width.max(1));
+
+        terminal.draw(|f| ui(f, &app))?;
+
+        if app.quit || app.term.is_dead() {
+            break;
+        }
+
+        if event::poll(Duration::from_millis(20))? {
+            match event::read()? {
+                Event::Key(key) if key.kind == KeyEventKind::Press => handle_key(&mut app, key),
+                _ => {}
+            }
+        }
+    }
+    Ok(())
+}
+
+fn handle_key(app: &mut App, key: ratatui::crossterm::event::KeyEvent) {
+    let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+    // meta keys for the tool - intercepted, never sent to the shell
+    match key.code {
+        KeyCode::F(10) => {
+            app.quit = true;
+            return;
+        }
+        KeyCode::Char('g') if ctrl => {
+            // panic-escape: works even if a full-screen program is wedged
+            app.quit = true;
+            return;
+        }
+        KeyCode::F(1) => {
+            app.reveal_hint();
+            return;
+        }
+        KeyCode::F(2) => {
+            app.show_job();
+            return;
+        }
+        _ => {}
+    }
+    if let Some(bytes) = key_to_bytes(&key) {
+        app.term.send(&bytes);
+    }
+}
+
+fn key_to_bytes(key: &ratatui::crossterm::event::KeyEvent) -> Option<Vec<u8>> {
+    let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+    Some(match key.code {
+        KeyCode::Char(c) if ctrl => {
+            let b = (c.to_ascii_uppercase() as u8) & 0x1f;
+            vec![b]
+        }
+        KeyCode::Char(c) => c.to_string().into_bytes(),
+        KeyCode::Enter => vec![b'\r'],
+        KeyCode::Backspace => vec![0x7f],
+        KeyCode::Tab => vec![b'\t'],
+        KeyCode::BackTab => vec![0x1b, b'[', b'Z'],
+        KeyCode::Esc => vec![0x1b],
+        KeyCode::Left => vec![0x1b, b'[', b'D'],
+        KeyCode::Right => vec![0x1b, b'[', b'C'],
+        KeyCode::Up => vec![0x1b, b'[', b'A'],
+        KeyCode::Down => vec![0x1b, b'[', b'B'],
+        KeyCode::Home => vec![0x1b, b'[', b'H'],
+        KeyCode::End => vec![0x1b, b'[', b'F'],
+        KeyCode::PageUp => vec![0x1b, b'[', b'5', b'~'],
+        KeyCode::PageDown => vec![0x1b, b'[', b'6', b'~'],
+        KeyCode::Delete => vec![0x1b, b'[', b'3', b'~'],
+        _ => return None,
+    })
+}
+
+/// Scan the visible screen for the last `<prefix><digits>@` and return the
+/// digits - i.e. which node's prompt we're looking at.
+fn find_user(contents: &str, prefix: &str) -> Option<u32> {
+    let mut last = None;
+    let mut idx = 0;
+    while let Some(pos) = contents[idx..].find(prefix) {
+        let start = idx + pos;
+        let after = &contents[start + prefix.len()..];
+        let digits: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
+        if !digits.is_empty() && after[digits.len()..].starts_with('@') {
+            if let Ok(n) = digits.parse::<u32>() {
+                last = Some(n);
+            }
+        }
+        idx = start + prefix.len();
+    }
+    last
+}
+
+fn content_rects(area: Rect) -> (Rect, Rect, Rect) {
+    let mx = (area.width / 12).clamp(3, 16);
+    let inner = Rect {
+        x: area.x + mx,
+        y: area.y + 1,
+        width: area.width.saturating_sub(2 * mx),
+        height: area.height.saturating_sub(2),
+    };
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(4), // comms
+            Constraint::Length(1), // air
+            Constraint::Min(1),    // terminal
+            Constraint::Length(1), // status
+        ])
+        .split(inner);
+    (rows[0], rows[2], rows[3])
+}
+
+fn ui(f: &mut Frame, app: &App) {
+    let t = &app.theme;
+    // dark frame everywhere
+    f.render_widget(Block::default().style(Style::default().bg(t.bg())), f.area());
+
+    let (comms_rect, term_rect, status_rect) = content_rects(f.area());
+    render_comms(f, comms_rect, app);
+    render_term(f, term_rect, app);
+    render_status(f, status_rect, app);
+}
+
+fn render_comms(f: &mut Frame, area: Rect, app: &App) {
+    let t = &app.theme;
+    let handler = t.comms.handler_name();
+    let take = area.height as usize;
+    let start = app.comms.len().saturating_sub(take);
+    let mut lines: Vec<Line> = Vec::new();
+    for c in &app.comms[start..] {
+        let (prefix, style) = match c.kind {
+            Kind::Handler => (
+                format!("<{handler}> "),
+                Style::default().fg(t.accent()),
+            ),
+            Kind::Narr => ("// ".to_string(), Style::default().fg(t.dim()).add_modifier(Modifier::ITALIC)),
+            Kind::Sys => (String::new(), Style::default().fg(t.dim())),
+        };
+        lines.push(Line::from(vec![
+            Span::styled(prefix, style),
+            Span::styled(c.text.clone(), style),
+        ]));
+    }
+    let p = Paragraph::new(Text::from(lines))
+        .wrap(Wrap { trim: true })
+        .style(Style::default().bg(t.bg()));
+    f.render_widget(p, area);
+}
+
+fn render_term(f: &mut Frame, area: Rect, app: &App) {
+    let t = &app.theme;
+    let screen = app.term.screen();
+    let (rows, cols) = screen.size();
+    let (crow, ccol) = screen.cursor_position();
+    let blink = (app.tick / 15) % 2 == 0;
+    let body = Style::default().fg(t.fg()).bg(t.bg());
+    let cursor = Style::default().fg(t.bg()).bg(t.accent());
+
+    let mut lines: Vec<Line> = Vec::with_capacity(rows as usize);
+    for r in 0..rows {
+        let mut spans: Vec<Span> = Vec::new();
+        let mut run = String::new();
+        for c in 0..cols {
+            let ch = screen
+                .cell(r, c)
+                .map(|cell| {
+                    let s = cell.contents();
+                    if s.is_empty() {
+                        " ".to_string()
+                    } else {
+                        s
+                    }
+                })
+                .unwrap_or_else(|| " ".to_string());
+            if blink && r == crow && c == ccol {
+                if !run.is_empty() {
+                    spans.push(Span::styled(std::mem::take(&mut run), body));
+                }
+                spans.push(Span::styled(ch, cursor));
+            } else {
+                run.push_str(&ch);
+            }
+        }
+        if !run.is_empty() {
+            spans.push(Span::styled(run, body));
+        }
+        lines.push(Line::from(spans));
+    }
+    let p = Paragraph::new(Text::from(lines)).style(body);
+    f.render_widget(p, area);
+}
+
+fn render_status(f: &mut Frame, area: Rect, app: &App) {
+    let t = &app.theme;
+    let node = app
+        .current_user
+        .map(|k| format!("{}{}", app.config.user_prefix, k))
+        .unwrap_or_else(|| "...".into());
+    let line = Line::from(Span::styled(
+        format!("{node}  .  {}  .  F1 leak  .  F2 job  .  ^G quit  .  or type `exit`", app.campaign.campaign),
+        Style::default().fg(t.dim()),
+    ));
+    f.render_widget(
+        Paragraph::new(line).style(Style::default().bg(t.bg())),
+        area,
+    );
+}
+
+// ---- helpers --------------------------------------------------------------
+
+fn world_running(container: &str) -> bool {
+    Command::new("docker")
+        .args(["inspect", "-f", "{{.State.Running}}", container])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim() == "true")
+        .unwrap_or(false)
 }
 
 fn campaign_name() -> String {
@@ -232,117 +445,9 @@ fn campaign_dir(name: &str) -> Result<PathBuf> {
     anyhow::bail!("could not find campaigns/{name}/ (run from the repo root)")
 }
 
-fn ansi_fg(c: Color) -> String {
-    if let Color::Rgb(r, g, b) = c {
-        format!("\x1b[38;2;{r};{g};{b}m")
-    } else {
-        String::new()
-    }
-}
-
-// ---- boot splash ----------------------------------------------------------
-
-fn type_out(s: &str, per_char_ms: u64) {
-    let mut out = stdout();
-    for ch in s.chars() {
-        print!("{ch}");
-        let _ = out.flush();
-        sleep(Duration::from_millis(per_char_ms));
-    }
-}
-
-/// The campaign's boot splash. No-op unless the theme enables it (and
-/// WARGAMEZR_NO_INTRO is unset).
-fn intro(theme: &Theme) {
-    if !theme.splash.enabled || std::env::var("WARGAMEZR_NO_INTRO").is_ok() {
-        return;
-    }
-    let sp = &theme.splash;
-    let amber = ansi_fg(theme.accent());
-    let red = ansi_fg(theme.red());
-    let green = ansi_fg(theme.green());
-    let dim = ansi_fg(theme.dim());
-    let rst = "\x1b[0m";
-
-    print!("\x1b[2J\x1b[H\x1b[?25l");
-    let _ = stdout().flush();
-
-    if !sp.hello.is_empty() {
-        type_out(&format!("{amber}{}{rst}\n", sp.hello), 55);
-        sleep(Duration::from_millis(500));
-    }
-    for line in sp.mask.lines() {
-        println!("{red}{line}{rst}");
-        sleep(Duration::from_millis(35));
-    }
-    if !sp.wordmark.is_empty() {
-        println!();
-        println!("{amber}\x1b[1m{}{rst}", sp.wordmark);
-    }
-    if !sp.tagline.is_empty() {
-        println!("{dim}{}{rst}", sp.tagline);
-    }
-    println!();
-    for s in &sp.steps {
-        print!("{dim} > {s}");
-        let _ = stdout().flush();
-        for _ in 0..8 {
-            print!(".");
-            let _ = stdout().flush();
-            sleep(Duration::from_millis(70));
-        }
-        println!(" {green}ok{rst}");
-        sleep(Duration::from_millis(120));
-    }
-    if !sp.final_line.is_empty() {
-        println!();
-        type_out(&format!("{red}{}{rst}\n", sp.final_line), 55);
-        sleep(Duration::from_millis(700));
-    }
-    print!("\x1b[?25h");
-    let _ = stdout().flush();
-}
-
-// ---- glitch ---------------------------------------------------------------
-
-fn rng(seed: u64) -> u64 {
-    let mut x = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
-    x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-    x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-    x ^ (x >> 31)
-}
-
-fn glitch(s: &str, seed: u64, prob: u64) -> String {
-    const G: &[u8] = b"!@#$%&*<>/\\|=+~^";
-    s.chars()
-        .enumerate()
-        .map(|(i, c)| {
-            if c == ' ' {
-                return c;
-            }
-            let r = rng(seed ^ (i as u64).wrapping_mul(0x0100_0000_01B3));
-            if r % 100 < prob {
-                G[(r as usize / 7) % G.len()] as char
-            } else {
-                c
-            }
-        })
-        .collect()
-}
-
-/// Apply the theme's glitch to `s` when a burst is active on this tick.
-fn maybe_glitch(app: &App, s: &str) -> String {
-    let g = &app.theme.glitch;
-    if g.enabled && g.period > 0 && app.tick % g.period < g.burst {
-        glitch(s, app.tick, g.prob)
-    } else {
-        s.to_string()
-    }
-}
-
 /// Headless doctor: confirm the world is reachable and every provisioned
-/// user has a recoverable password (exercises the Docker layer).
-fn check(config: &CampaignConfig, campaign: &Campaign, world: &World) -> Result<()> {
+/// user has a recoverable password.
+fn check(config: &CampaignConfig, campaign: &Campaign) -> Result<()> {
     println!("wargamezr --check  (campaign: {})", config.name);
     if !config.story.is_empty() {
         println!("story    : {}", config.story);
@@ -353,8 +458,9 @@ fn check(config: &CampaignConfig, campaign: &Campaign, world: &World) -> Result<
         campaign.levels.len(),
         config.max_level
     );
-    print!("world    : {} ... ", world.container);
-    if !world.is_running() {
+    let container = config.container();
+    print!("world    : {container} ... ");
+    if !world_running(&container) {
         println!("NOT RUNNING");
         anyhow::bail!("start the world first: make world-up CAMPAIGN={}", config.name);
     }
@@ -364,285 +470,20 @@ fn check(config: &CampaignConfig, campaign: &Campaign, world: &World) -> Result<
         if lvl.n == 0 {
             continue;
         }
-        match world.password_of(lvl.n) {
-            Ok(pw) if pw.len() >= 8 => {
-                provisioned += 1;
-                println!("  {}{:<2}  password reachable ({}...)", config.user_prefix, lvl.n, &pw[..4]);
-            }
-            Ok(_) => println!("  {}{:<2}  password too short?", config.user_prefix, lvl.n),
-            Err(_) => println!("  {}{:<2}  not provisioned in this world build", config.user_prefix, lvl.n),
+        let user = format!("{}{}", config.user_prefix, lvl.n);
+        let out = Command::new("docker")
+            .args(["exec", &container, "cat", &format!("{}/{user}", config.pass_dir())])
+            .output()?;
+        if out.status.success() && String::from_utf8_lossy(&out.stdout).trim().len() >= 8 {
+            provisioned += 1;
+            let pw = String::from_utf8_lossy(&out.stdout);
+            println!("  {user:<10} reachable ({}...)", &pw.trim()[..4]);
+        } else {
+            println!("  {user:<10} not provisioned in this world build");
         }
     }
     println!("ok: {provisioned} users provisioned and verifiable");
     Ok(())
-}
-
-fn run(terminal: &mut DefaultTerminal, app: &mut App) -> Result<()> {
-    loop {
-        app.tick = app.tick.wrapping_add(1);
-        terminal.draw(|f| ui(f, app))?;
-        if !event::poll(Duration::from_millis(200))? {
-            continue;
-        }
-        let Event::Key(key) = event::read()? else {
-            continue;
-        };
-        if key.kind != KeyEventKind::Press {
-            continue;
-        }
-
-        if app.input_mode {
-            match key.code {
-                KeyCode::Enter => app.submit_password(),
-                KeyCode::Esc => {
-                    app.input.clear();
-                    app.input_mode = false;
-                }
-                KeyCode::Backspace => {
-                    app.input.pop();
-                }
-                KeyCode::Char(c) => app.input.push(c),
-                _ => {}
-            }
-            continue;
-        }
-
-        match key.code {
-            KeyCode::Char('q') => break,
-            KeyCode::Down | KeyCode::Char('j') => app.move_sel(1),
-            KeyCode::Up | KeyCode::Char('k') => app.move_sel(-1),
-            KeyCode::Char('h') => app.reveal_hint(),
-            KeyCode::Char('s') => app.show_solution = !app.show_solution,
-            KeyCode::Char('r') => app.refresh_world(),
-            KeyCode::Char('p') => {
-                app.input_mode = true;
-                app.status = app.theme.lbl("status_enter_creds", "type the password, enter to submit, esc to cancel.");
-            }
-            KeyCode::Enter => app.enter_level(terminal)?,
-            _ => {}
-        }
-    }
-    Ok(())
-}
-
-fn themed_block(app: &App, title: &str) -> Block<'static> {
-    Block::bordered()
-        .title(Span::styled(
-            format!(" {title} "),
-            Style::default().fg(app.theme.accent()).add_modifier(Modifier::BOLD),
-        ))
-        .border_type(app.theme.border_type())
-        .border_style(Style::default().fg(app.theme.dim()))
-}
-
-fn ui(f: &mut Frame, app: &App) {
-    let root = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),
-            Constraint::Min(5),
-            Constraint::Length(4),
-        ])
-        .split(f.area());
-
-    render_header(f, root[0], app);
-
-    let body = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(34), Constraint::Percentage(66)])
-        .split(root[1]);
-
-    render_level_list(f, body[0], app);
-    render_detail(f, body[1], app);
-    render_help(f, root[2], app);
-}
-
-fn render_header(f: &mut Frame, area: Rect, app: &App) {
-    let t = &app.theme;
-    let total = app.campaign.levels.len().saturating_sub(1);
-    let solved = app.save.solved.len();
-    let brand = maybe_glitch(app, &t.lbl("brand", "wargamezr"));
-    let (live_word, live_color) = if app.world_running {
-        (t.lbl("box_live", "up"), t.green())
-    } else {
-        (t.lbl("box_dead", "down"), t.red())
-    };
-    let line = Line::from(vec![
-        Span::styled(format!("  {brand} "), Style::default().fg(t.red()).add_modifier(Modifier::BOLD)),
-        Span::styled(format!("// {} ", app.campaign.campaign), Style::default().fg(t.fg())),
-        Span::styled(
-            format!("| {solved}/{total} {} ", t.lbl("word_owned", "cleared")),
-            Style::default().fg(t.green()),
-        ),
-        Span::styled(
-            format!("| {} {} ", app.save.treasure.len(), t.lbl("word_creds", "treasure")),
-            Style::default().fg(t.gold()),
-        ),
-        Span::styled("| box ".to_string(), Style::default().fg(t.dim())),
-        Span::styled(live_word, Style::default().fg(live_color)),
-    ]);
-    let p = Paragraph::new(line).block(
-        Block::bordered()
-            .border_type(t.border_type())
-            .border_style(Style::default().fg(t.dim())),
-    );
-    f.render_widget(p, area);
-}
-
-fn render_level_list(f: &mut Frame, area: Rect, app: &App) {
-    let t = &app.theme;
-    let word = t.lbl("word_target", "level");
-    let get_in = t.lbl("get_in_label", "get in");
-    let items: Vec<ListItem> = app
-        .campaign
-        .levels
-        .iter()
-        .map(|lvl| {
-            let unlocked = app.save.is_unlocked(lvl.n);
-            let solved = app.save.is_solved(lvl.n);
-            let (glyph, color) = if solved {
-                ("[x]", t.green())
-            } else if !unlocked {
-                ("[-]", t.dim())
-            } else {
-                ("[>]", t.accent())
-            };
-            let label = if lvl.n == 0 {
-                format!("{word} 00 - {get_in}")
-            } else {
-                format!("{word} {:02} - {}", lvl.n, short_title(&lvl.title))
-            };
-            ListItem::new(Line::from(vec![
-                Span::styled(format!(" {glyph} "), Style::default().fg(color)),
-                Span::styled(label, Style::default().fg(if unlocked { t.fg() } else { t.dim() })),
-            ]))
-        })
-        .collect();
-
-    let list = List::new(items)
-        .block(themed_block(app, &t.lbl("panel_targets", "levels")))
-        .highlight_style(
-            Style::default()
-                .bg(t.hilite())
-                .fg(t.accent())
-                .add_modifier(Modifier::BOLD),
-        )
-        .highlight_symbol("");
-
-    let mut state = app.list_state.clone();
-    f.render_stateful_widget(list, area, &mut state);
-}
-
-fn render_detail(f: &mut Frame, area: Rect, app: &App) {
-    let t = &app.theme;
-    let rows = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(area);
-
-    let lvl = app.current();
-
-    // --- the job / brief ---
-    let mut brief: Vec<Line> = Vec::new();
-    brief.push(Line::from(Span::styled(
-        maybe_glitch(app, &lvl.title),
-        Style::default().fg(t.gold()).add_modifier(Modifier::BOLD),
-    )));
-    brief.push(Line::from(""));
-    for l in lvl.goal.trim().lines() {
-        brief.push(Line::from(Span::styled(l.to_string(), Style::default().fg(t.fg()))));
-    }
-    if !lvl.commands.is_empty() {
-        brief.push(Line::from(""));
-        brief.push(Line::from(vec![
-            Span::styled(format!("{} ", t.lbl("tools_label", "useful:")), Style::default().fg(t.dim())),
-            Span::styled(lvl.commands.join("  "), Style::default().fg(t.accent())),
-        ]));
-    }
-    if let Some(pw) = app.save.treasure.get(&lvl.n) {
-        brief.push(Line::from(""));
-        brief.push(Line::from(vec![
-            Span::styled(format!("{} ", t.lbl("creds_label", "treasure:")), Style::default().fg(t.green())),
-            Span::styled(pw.clone(), Style::default().fg(t.green()).add_modifier(Modifier::BOLD)),
-        ]));
-    }
-    let brief_p = Paragraph::new(Text::from(brief))
-        .wrap(Wrap { trim: false })
-        .block(themed_block(app, &t.lbl("panel_job", "brief")));
-    f.render_widget(brief_p, rows[0]);
-
-    // --- leaks / exploit / creds input ---
-    let mut lower: Vec<Line> = Vec::new();
-    let title;
-    if app.input_mode {
-        let cur = if app.tick % 2 == 0 { "_" } else { " " };
-        lower.push(Line::from(Span::styled(
-            t.lbl("creds_prompt_hint", "enter the password you recovered:"),
-            Style::default().fg(t.dim()),
-        )));
-        lower.push(Line::from(""));
-        lower.push(Line::from(vec![
-            Span::styled(t.lbl("creds_prompt", "> "), Style::default().fg(t.red())),
-            Span::styled(app.input.clone(), Style::default().fg(t.fg())),
-            Span::styled(cur, Style::default().fg(t.accent())),
-        ]));
-        title = t.lbl("panel_creds", "password");
-    } else if app.show_solution {
-        lower.push(Line::from(Span::styled(
-            t.lbl("exploit_header", "SPOILER - intended solution:"),
-            Style::default().fg(t.red()).add_modifier(Modifier::BOLD),
-        )));
-        lower.push(Line::from(""));
-        for l in lvl.solution.trim().lines() {
-            lower.push(Line::from(Span::styled(l.to_string(), Style::default().fg(t.fg()))));
-        }
-        title = t.lbl("panel_exploit", "solution");
-    } else {
-        let used = app.save.hints_used(lvl.n);
-        let total = lvl.hints.len();
-        let header = t
-            .lbl("leaks_header", "hints ({used}/{total} revealed - press h for more)")
-            .replace("{used}", &used.to_string())
-            .replace("{total}", &total.to_string());
-        lower.push(Line::from(Span::styled(header, Style::default().fg(t.dim()))));
-        lower.push(Line::from(""));
-        for (i, hint) in lvl.hints.iter().take(used).enumerate() {
-            lower.push(Line::from(vec![
-                Span::styled(format!("{}. ", i + 1), Style::default().fg(t.accent())),
-                Span::styled(hint.clone(), Style::default().fg(t.fg())),
-            ]));
-            lower.push(Line::from(""));
-        }
-        if used == 0 {
-            lower.push(Line::from(Span::styled(
-                t.lbl("leaks_empty", "(no hints revealed yet)"),
-                Style::default().fg(t.dim()),
-            )));
-        }
-        title = t.lbl("panel_leaks", "hints");
-    }
-    let lower_p = Paragraph::new(Text::from(lower))
-        .wrap(Wrap { trim: false })
-        .block(themed_block(app, &title));
-    f.render_widget(lower_p, rows[1]);
-}
-
-fn render_help(f: &mut Frame, area: Rect, app: &App) {
-    let t = &app.theme;
-    let keys = t.lbl(
-        "keys",
-        "j/k move   enter open   h hint   s solution   p password   r refresh   q quit",
-    );
-    let status = Line::from(Span::styled(format!(" {} ", app.status), Style::default().fg(t.gold())));
-    let help = Line::from(Span::styled(keys, Style::default().fg(t.dim())));
-    let p = Paragraph::new(Text::from(vec![status, help]))
-        .alignment(Alignment::Left)
-        .block(
-            Block::bordered()
-                .border_type(t.border_type())
-                .border_style(Style::default().fg(t.dim())),
-        );
-    f.render_widget(p, area);
 }
 
 fn short_title(t: &str) -> String {

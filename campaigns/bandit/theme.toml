@@ -19,3 +19,10 @@ enabled = false
 
 [labels]
 brand = "wargamezr"
+
+[comms]
+handler = "ops"
+opening = [
+  "connected. find the password for the next level and ssh in.",
+]
+narration = []

@@ -10,6 +10,7 @@ red    = "#c4211e"   # fsociety red
 fg     = "#c8c8b4"   # dim bone
 dim    = "#5c5c52"
 hilite = "#26200c"
+bg     = "#0a0a0a"
 
 [glitch]
 enabled = true
@@ -72,3 +73,18 @@ status_back   = "back topside. hit p to drop the creds you pulled off {who}."
 status_enter_creds = "paste the creds, enter to submit, esc to bail."
 status_no_verify = "box is dark - can't verify."
 enter_banner  = "-- jacking into {who} --"
+
+
+[comms]
+handler = "darlene"
+opening = [
+  "you're on the jump box. don't linger.",
+  "the next node's creds are on it somewhere. find them, ssh in, keep moving.",
+]
+narration = [
+  "they built all this on trust. that's the exploit.",
+  "one node at a time. don't think about the rest.",
+  "somewhere in here is a door someone forgot to lock.",
+  "control is an illusion. so is this network's.",
+  "i'm not supposed to be here. neither are you.",
+]

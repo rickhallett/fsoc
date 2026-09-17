@@ -65,6 +65,7 @@ impl CampaignConfig {
 // ---- theme ---------------------------------------------------------------
 
 #[derive(Debug, Deserialize, Default)]
+#[allow(dead_code)]
 pub struct Palette {
     #[serde(default)]
     accent: String,
@@ -80,9 +81,12 @@ pub struct Palette {
     dim: String,
     #[serde(default)]
     hilite: String,
+    #[serde(default)]
+    bg: String,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct Glitch {
     #[serde(default)]
     pub enabled: bool,
@@ -109,6 +113,7 @@ impl Default for Glitch {
 }
 
 #[derive(Debug, Deserialize, Default)]
+#[allow(dead_code)]
 pub struct Splash {
     #[serde(default)]
     pub enabled: bool,
@@ -126,7 +131,18 @@ pub struct Splash {
     pub final_line: String,
 }
 
+#[derive(Debug, Deserialize, Default)]
+pub struct Comms {
+    #[serde(default)]
+    pub handler: String,
+    #[serde(default)]
+    pub opening: Vec<String>,
+    #[serde(default)]
+    pub narration: Vec<String>,
+}
+
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct Theme {
     #[serde(default = "default_border")]
     border: String,
@@ -136,6 +152,8 @@ pub struct Theme {
     pub glitch: Glitch,
     #[serde(default)]
     pub splash: Splash,
+    #[serde(default)]
+    pub comms: Comms,
     #[serde(default)]
     labels: HashMap<String, String>,
 }
@@ -149,7 +167,18 @@ impl Default for Theme {
             palette: Palette::default(),
             glitch: Glitch::default(),
             splash: Splash::default(),
+            comms: Comms::default(),
             labels: HashMap::new(),
+        }
+    }
+}
+
+impl Comms {
+    pub fn handler_name(&self) -> String {
+        if self.handler.is_empty() {
+            "handler".into()
+        } else {
+            self.handler.clone()
         }
     }
 }
@@ -168,6 +197,7 @@ fn hex_or(s: &str, fb: Color) -> Color {
     fb
 }
 
+#[allow(dead_code)]
 impl Theme {
     pub fn load(path: &Path) -> Result<Self> {
         match std::fs::read_to_string(path) {
@@ -198,6 +228,9 @@ impl Theme {
     }
     pub fn hilite(&self) -> Color {
         hex_or(&self.palette.hilite, Color::Rgb(30, 41, 59))
+    }
+    pub fn bg(&self) -> Color {
+        hex_or(&self.palette.bg, Color::Rgb(10, 10, 10))
     }
 
     pub fn border_type(&self) -> BorderType {
