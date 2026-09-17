@@ -67,6 +67,14 @@ setup (SSH keys, TLS daemons, cron jobs, git repos, shell escapes) is the
 next tranche - see `world/setup/plant-levels.sh`, which is already guarded
 by `MAX_LEVEL` so raising it is additive.
 
+## Look & feel
+
+The front-end wears an fsociety mask: a near-black / amber-phosphor / fsociety-red
+grade, squared terminal borders, terse lowercase copy (targets, leaks, creds,
+"jack in"), a subtly glitching header, and a boot splash (`hello, friend.` ->
+ASCII mask -> fake tor/handshake log). Set `WARGAMEZR_NO_INTRO=1` to skip the
+splash.
+
 ## Design notes
 
 - **Fresh secrets.** `world/setup/provision.sh` generates a random 32-char
