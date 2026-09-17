@@ -1,0 +1,74 @@
+# fsociety skin: near-black / amber phosphor / fsociety red, squared borders,
+# glitching header, boot splash, terse paranoid copy.
+border = "plain"
+
+[palette]
+accent = "#d9a521"   # amber phosphor
+gold   = "#d9a521"
+green  = "#3fb950"
+red    = "#c4211e"   # fsociety red
+fg     = "#c8c8b4"   # dim bone
+dim    = "#5c5c52"
+hilite = "#26200c"
+
+[glitch]
+enabled = true
+prob    = 40         # % of chars corrupted during a burst
+period  = 37         # frames between bursts
+burst   = 2          # frames per burst
+
+[splash]
+enabled = true
+hello   = "hello, friend."
+tagline = "        our democracy has been hacked."
+wordmark = "        f s o c i e t y"
+steps = [
+  "establishing tor circuit",
+  "spoofing mac address",
+  "scanning target box",
+  "opening a door",
+]
+final = "you're in."
+mask = '''
+        .-"""""-.
+      .'  _   _  '.
+     /   (o) (o)   \
+    :      .-.      :
+    |     (   )     |
+    :      '-'      :
+     \   \_____/   /
+      '.         .'
+        '-.....-'
+'''
+
+[labels]
+brand         = "fsociety"
+panel_targets = "targets"
+panel_job     = "the job"
+panel_leaks   = "// leaks"
+panel_exploit = "exploit"
+panel_creds   = "creds"
+word_owned    = "owned"
+word_creds    = "creds"
+word_target   = "node"
+box_live      = "breathing"
+box_dead      = "dark"
+tools_label   = "tools:"
+creds_label   = "creds:"
+get_in_label  = "get in"
+leaks_header  = "// leaks  ({used}/{total} decrypted - press h for more)"
+leaks_empty   = "nothing leaked yet. you're on your own, friend."
+exploit_header = "// exploit [spoiler] - this is cheating, friend:"
+creds_prompt_hint = "// creds pulled off the box?"
+creds_prompt  = "root@target:~$ "
+keys          = "j/k move   enter jack in   h leak   s exploit   p creds   r rescan   q bail"
+status_up     = "the box is breathing. pick a target, jack in."
+status_down   = "box is dark. `make world-up`, then hit r."
+status_wrong  = "that's not it. try again, friend."
+status_correct = "[ok] you're in. {user} owned."
+status_locked = "locked. own the one before it first."
+status_level0 = "target 00 has no creds - just jack in (enter)."
+status_back   = "back topside. hit p to drop the creds you pulled off {who}."
+status_enter_creds = "paste the creds, enter to submit, esc to bail."
+status_no_verify = "box is dark - can't verify."
+enter_banner  = "-- jacking into {who} --"

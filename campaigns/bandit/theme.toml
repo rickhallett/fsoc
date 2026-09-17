@@ -1,0 +1,21 @@
+# Plain skin: cool teal/gold, rounded borders, no splash, no glitch.
+# Everything not set here falls back to the neutral defaults in the TUI.
+border = "rounded"
+
+[palette]
+accent = "#5eead4"   # teal
+gold   = "#facc15"
+green  = "#4ade80"
+red    = "#f87171"
+fg     = "#e2e8f0"
+dim    = "#788596"
+hilite = "#1e293b"
+
+[glitch]
+enabled = false
+
+[splash]
+enabled = false
+
+[labels]
+brand = "wargamezr"

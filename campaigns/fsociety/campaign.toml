@@ -1,0 +1,9 @@
+# The fsociety skin: same wargame, re-skinned as an E Corp intrusion.
+# Users become "nodes" you pivot across the network.
+name = "fsociety"
+story = "You're inside E Corp's network. Pivot node to node, own root, don't get caught."
+user_prefix = "node"
+pass_dir = "/etc/node_pass"
+container = "wargamezr-fsociety"
+image = "wargamezr-fsociety:slice"
+max_level = 11

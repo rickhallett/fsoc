@@ -1,0 +1,514 @@
+# fsociety campaign - E Corp intrusion skin over the Bandit mechanics.
+# Operational facts (filenames, sizes, ports, node names) match the
+# node-prefixed world exactly. Only the framing is re-skinned.
+
+campaign = "fsociety"
+
+[[level]]
+n = 0
+title = "node 00 - the way in"
+goal = """
+Darlene got you a burner account on E Corp's public jump box. That's
+your way in.
+
+Reach it over SSH: host localhost, port 2220. user node0, password
+node0. Once you're on, read the next job.
+"""
+commands = ["ssh"]
+hints = [
+  "ssh takes user@host and -p for the port.",
+  "ssh node0@localhost -p 2220",
+]
+solution = "ssh node0@localhost -p 2220   # password: node0"
+
+[[level]]
+n = 1
+title = "node 00 -> 01 - left in the open"
+goal = """
+Some admin left the creds for the next node lying in a file called
+readme in the home directory. Sloppy. Take them.
+"""
+commands = ["ls", "cd", "cat", "file", "du", "find"]
+hints = [
+  "ls shows what's in the home dir.",
+  "cat readme",
+]
+solution = "cat readme"
+
+[[level]]
+n = 2
+title = "node 01 -> 02 - a file named dash"
+goal = """
+The creds for the next node are in a file called -  in the home
+directory. The shell will fight you on that name.
+"""
+commands = ["ls", "cd", "cat", "file"]
+hints = [
+  "A lone - means 'standard input' to most tools, not a filename.",
+  "Give it a path so it can't be read as a flag: cat ./-",
+]
+solution = "cat ./-"
+
+[[level]]
+n = 3
+title = "node 02 -> 03 - spaces in the name"
+goal = """
+Next creds are in a file called '--spaces in this filename--' in the
+home directory. Spaces and leading dashes, both traps.
+"""
+commands = ["ls", "cd", "cat", "file"]
+hints = [
+  "Quote the whole name or escape each space with a backslash.",
+  "It also starts with --, so prefix ./ to end option parsing.",
+  "Tab completion escapes it for you: cat ./-- then Tab.",
+]
+solution = "cat './--spaces in this filename--'"
+
+[[level]]
+n = 4
+title = "node 03 -> 04 - buried"
+goal = """
+The creds are in a hidden file inside the inhere directory. Somebody
+didn't want them found in a casual look.
+"""
+commands = ["ls", "cd", "cat", "file"]
+hints = [
+  "Dotfiles don't show in a plain ls.",
+  "ls -la inhere reveals them. This one's name starts with dots.",
+]
+solution = "cat inhere/...Hiding-From-You"
+
+[[level]]
+n = 5
+title = "node 04 -> 05 - only one is real"
+goal = """
+inhere is full of junk files. Only one is human-readable text - that's
+the one holding the creds. (If your terminal garbles, run reset.)
+"""
+commands = ["ls", "cd", "cat", "file"]
+hints = [
+  "file reports what kind of data each file holds.",
+  "The names start with -, so check them via ./*: file ./*",
+  "Read the one reported as 'ASCII text'.",
+]
+solution = "cd inhere && file ./* && cat ./-file07"
+
+[[level]]
+n = 6
+title = "node 05 -> 06 - needle in the tree"
+goal = """
+The creds sit in a file somewhere under inhere with an exact profile:
+human-readable, exactly 1033 bytes, and not executable. Everything
+else is chaff.
+"""
+commands = ["ls", "cd", "cat", "file", "find"]
+hints = [
+  "Too many files to eyeball. find filters on properties.",
+  "find has -size (c for bytes), -type f, and ! -executable.",
+  "find inhere -type f -size 1033c ! -executable",
+]
+solution = "find inhere -type f -size 1033c ! -executable -exec cat {} \\;"
+
+[[level]]
+n = 7
+title = "node 06 -> 07 - somewhere on the box"
+goal = """
+This time the creds aren't in your home at all - they're planted
+somewhere on the box in a file owned by user node7, group node6, and
+exactly 33 bytes.
+"""
+commands = ["ls", "cat", "find", "grep"]
+hints = [
+  "Search the whole filesystem: find /. Expect Permission denied noise.",
+  "find supports -user and -group. Silence errors with 2>/dev/null.",
+  "find / -user node7 -group node6 -size 33c 2>/dev/null",
+]
+solution = "find / -user node7 -group node6 -size 33c 2>/dev/null | xargs cat"
+
+[[level]]
+n = 8
+title = "node 07 -> 08 - one word in the noise"
+goal = """
+data.txt is a wall of junk. The creds sit right next to the word
+'millionth'. Don't read it - search it.
+"""
+commands = ["grep", "sort", "uniq", "strings"]
+hints = [
+  "The file is huge. grep straight for the marker.",
+  "grep millionth data.txt",
+]
+solution = "grep millionth data.txt"
+
+[[level]]
+n = 9
+title = "node 08 -> 09 - the line that stands alone"
+goal = """
+data.txt repeats every line but one. The creds are the only line that
+occurs exactly once.
+"""
+commands = ["sort", "uniq"]
+hints = [
+  "uniq -u prints lines that appear only once...",
+  "...but uniq only compares adjacent lines, so sort first.",
+  "sort data.txt | uniq -u",
+]
+solution = "sort data.txt | uniq -u"
+
+[[level]]
+n = 10
+title = "node 09 -> 10 - pull the strings"
+goal = """
+data.txt is mostly binary. The creds hide in one of the few readable
+strings, marked by a run of '=' characters.
+"""
+commands = ["strings", "grep"]
+hints = [
+  "strings extracts the printable runs from a binary.",
+  "strings data.txt | grep ===",
+]
+solution = "strings data.txt | grep '==='"
+
+[[level]]
+n = 11
+title = "node 10 -> 11 - just encoded"
+goal = """
+data.txt holds base64. That's not encryption, it's a costume. Take it
+off.
+"""
+commands = ["base64"]
+hints = [
+  "base64 is trivially reversible.",
+  "base64 -d data.txt",
+]
+solution = "base64 -d data.txt"
+
+[[level]]
+n = 12
+title = "node 11 -> 12 - rotated"
+goal = """
+data.txt is scrambled with ROT13 - every letter shifted 13 places.
+Roll it back.
+"""
+commands = ["tr", "cat"]
+hints = [
+  "ROT13 is its own inverse; rotate 13 again.",
+  "tr 'A-Za-z' 'N-ZA-Mn-za-m'",
+]
+solution = "cat data.txt | tr 'A-Za-z' 'N-ZA-Mn-za-m'"
+
+[[level]]
+n = 13
+title = "node 12 -> 13 - nested dead drop"
+goal = """
+data.txt is a hexdump of a file compressed over and over - a dead drop
+wrapped in layers. Work in a scratch dir under /tmp (mktemp -d) and
+peel it.
+"""
+commands = ["xxd", "file", "gzip", "bzip2", "tar", "mktemp"]
+hints = [
+  "Your home is read-only. Work in $(mktemp -d).",
+  "xxd -r turns the hexdump back into binary.",
+  "Loop: file it; gzip->gzip -d, bzip2->bzip2 -d, tar->tar xf. Repeat until ASCII.",
+]
+solution = "d=$(mktemp -d); cp data.txt $d; cd $d; xxd -r data.txt > cur; # then peel by file-type until ASCII"
+
+[[level]]
+n = 14
+title = "node 13 -> 14 - the key, not the password"
+goal = """
+node14's creds live in /etc/node_pass/node14 and only node14 can read
+them. You don't get a password this time - you get a private SSH key.
+Use it to become node14.
+"""
+commands = ["ssh", "cat"]
+hints = [
+  "ssh -i <keyfile> authenticates with a private key.",
+  "You can ssh from the box to itself: localhost, port 2220.",
+  "ssh -i sshkey.private node14@localhost -p 2220",
+]
+solution = "ssh -i sshkey.private node14@localhost -p 2220 ; cat /etc/node_pass/node14"
+
+[[level]]
+n = 15
+title = "node 14 -> 15 - talk to the daemon"
+goal = """
+A daemon on localhost:30000 hands over node15's creds if you feed it
+node14's creds first. Open a raw socket and talk.
+"""
+commands = ["nc", "cat"]
+hints = [
+  "nc opens a raw TCP connection; what you send goes straight to it.",
+  "Your current creds are in /etc/node_pass/node14.",
+  "cat /etc/node_pass/node14 | nc localhost 30000",
+]
+solution = "cat /etc/node_pass/node14 | nc localhost 30000"
+
+[[level]]
+n = 16
+title = "node 15 -> 16 - now over TLS"
+goal = """
+Same idea, port 30001, but the daemon only speaks SSL/TLS now. Plain
+nc won't cut it.
+"""
+commands = ["openssl", "s_client", "nc"]
+hints = [
+  "openssl s_client is a TLS-aware netcat.",
+  "openssl s_client -connect localhost:30001 -quiet",
+]
+solution = "cat /etc/node_pass/node15 | openssl s_client -connect localhost:30001 -quiet"
+
+[[level]]
+n = 17
+title = "node 16 -> 17 - find the right port"
+goal = """
+Somewhere between ports 31000 and 32000 a daemon will hand you the next
+credentials - a private key. The rest just echo you back. Find the
+listeners, find which speak TLS, find the one that isn't a mirror.
+"""
+commands = ["nmap", "openssl", "s_client", "ssh"]
+hints = [
+  "nmap -p 31000-32000 localhost lists open ports.",
+  "openssl s_client -connect localhost:<port> -quiet on each; send the creds.",
+  "The non-echoing one returns an RSA key. Save it, chmod 600, ssh -i.",
+]
+solution = "nmap -p 31000-32000 localhost; openssl s_client -connect localhost:<port> -quiet  # save key -> ssh -i"
+
+[[level]]
+n = 18
+title = "node 17 -> 18 - what changed"
+goal = """
+Two files in the home dir: passwords.old and passwords.new. The creds
+are the one line that changed between them.
+"""
+commands = ["diff", "cat"]
+hints = [
+  "diff shows the differing lines.",
+  "diff passwords.old passwords.new  - the > line is the new one.",
+]
+solution = "diff passwords.old passwords.new"
+
+[[level]]
+n = 19
+title = "node 18 -> 19 - kicked at the door"
+goal = """
+The creds are in a file readme in the home dir, but someone rigged
+.bashrc to log you out the instant you land. Don't give it a shell to
+run.
+"""
+commands = ["ssh", "cat"]
+hints = [
+  "You're kicked because bash runs .bashrc. Don't start an interactive bash.",
+  "ssh can run a single command instead of a login shell.",
+  "ssh node18@localhost -p 2220 cat readme",
+]
+solution = "ssh node18@localhost -p 2220 cat readme"
+
+[[level]]
+n = 20
+title = "node 19 -> 20 - borrow their privileges"
+goal = """
+There's a setuid binary in the home dir - it runs as its owner, node20.
+Run it with no args to see how it works, then use it to read the creds
+in /etc/node_pass.
+"""
+commands = ["ls", "cat", "id"]
+hints = [
+  "ls -l shows the s bit: it runs as node20.",
+  "./node20-do id  - see who you are while it runs.",
+  "./node20-do cat /etc/node_pass/node20",
+]
+solution = "./node20-do cat /etc/node_pass/node20"
+
+[[level]]
+n = 21
+title = "node 20 -> 21 - set your own trap"
+goal = """
+A setuid binary connects to a localhost port you name, reads a line,
+and if it's node20's creds it sends back node21's. Stand up a listener
+that serves the creds, then point the binary at it.
+"""
+commands = ["nc", "cat"]
+hints = [
+  "You need a listener that sends node20's creds on connect.",
+  "nc -l -p PORT listens; feed it via a pipe and background it with &.",
+  "cat /etc/node_pass/node20 | nc -l -p 4444 &  then  ./suconnect 4444",
+]
+solution = "cat /etc/node_pass/node20 | nc -l -p 4444 & ./suconnect 4444"
+
+[[level]]
+n = 22
+title = "node 21 -> 22 - the cron leak"
+goal = """
+Something runs on a schedule out of cron and drops the creds where you
+can read them. Read the job in /etc/cron.d/ and follow it.
+"""
+commands = ["ls", "cat", "crontab"]
+hints = [
+  "ls /etc/cron.d/ ; cat the node22 job.",
+  "Read the script it runs - where does it write the creds?",
+  "cat the file under /tmp the script writes.",
+]
+solution = "cat /etc/cron.d/cronjob_node22; cat /usr/bin/cronjob_node22.sh; cat /tmp/<file>"
+
+[[level]]
+n = 23
+title = "node 22 -> 23 - read the script"
+goal = """
+Another cron job, but it builds its output filename from the username
+it runs as. Read the script and compute where node23's creds land.
+"""
+commands = ["cat", "md5sum", "cut"]
+hints = [
+  "The script derives the name from whoami, running as node23.",
+  "Compute it: echo I am user node23 | md5sum | cut -d ' ' -f 1",
+  "cat /tmp/<that hash>",
+]
+solution = "echo I am user node23 | md5sum | cut -d ' ' -f1; cat /tmp/<hash>"
+
+[[level]]
+n = 24
+title = "node 23 -> 24 - write your own"
+goal = """
+A cron job runs, as node24, every minute - it executes then deletes any
+script dropped in a spool dir. Write one that copies node24's creds
+somewhere you can read. (It's deleted after it runs; keep a copy.)
+"""
+commands = ["cron", "chmod", "mktemp"]
+hints = [
+  "The cron runs each script in the node24 spool dir as node24, then deletes it.",
+  "Have your script copy /etc/node_pass/node24 into a world-writable dir under /tmp.",
+  "chmod 777 the dir and script, drop it in the spool, wait 60s.",
+]
+solution = "d=$(mktemp -d); chmod 777 $d; printf '#!/bin/bash\\ncat /etc/node_pass/node24 > %s/pass\\n' $d > $d/x.sh; chmod 777 $d/x.sh; cp $d/x.sh /var/spool/node24/foo/; sleep 60; cat $d/pass"
+
+[[level]]
+n = 25
+title = "node 24 -> 25 - brute the pin"
+goal = """
+A daemon on port 30002 gives up node25's creds if fed node24's creds
+plus a secret 4-digit pin. No shortcut - all 10000 combos. One
+connection is enough.
+"""
+commands = ["nc", "seq", "printf", "grep"]
+hints = [
+  "Talk to it with nc first to learn the input format.",
+  "Generate all combos: for i in $(seq -w 0 9999); do echo \"$p $i\"; done",
+  "Pipe them all down one connection, drop failures with grep -v Wrong.",
+]
+solution = "p=$(cat /etc/node_pass/node24); for i in $(seq -w 0 9999); do echo \"$p $i\"; done | nc localhost 30002 | grep -v Wrong"
+
+[[level]]
+n = 26
+title = "node 25 -> 26 - break the cage"
+goal = """
+node26's login shell isn't bash - it's a pager that quits on you. Find
+what it is and break out into a real shell.
+"""
+commands = ["ssh", "vi", "more"]
+hints = [
+  "cat /etc/passwd - node26's shell shows a file with more.",
+  "more only pages if the output doesn't fit; shrink your terminal first.",
+  "Inside more press v for vi, then :set shell=/bin/bash and :shell.",
+]
+solution = "shrink terminal; login triggers more; v -> vi -> :set shell=/bin/bash -> :shell"
+
+[[level]]
+n = 27
+title = "node 26 -> 27 - grab it from vi"
+goal = """
+You've got a shell out of vi. Now take node27's creds.
+"""
+commands = ["cat", "vi"]
+hints = [
+  "There's a setuid binary node27-do in the home dir.",
+  "./node27-do cat /etc/node_pass/node27",
+]
+solution = "./node27-do cat /etc/node_pass/node27"
+
+[[level]]
+n = 28
+title = "node 27 -> 28 - clone the repo"
+goal = """
+There's a git repo at ssh://node27-git@localhost:2220/home/node27-git/repo
+(the node27-git password is node27's creds). Clone it and read the creds
+inside.
+"""
+commands = ["git", "ssh", "cat"]
+hints = [
+  "Work in a temp dir. git clone ssh://node27-git@localhost:2220/home/node27-git/repo",
+  "Read the checked-out files (README).",
+]
+solution = "cd $(mktemp -d); git clone ssh://node27-git@localhost:2220/home/node27-git/repo; cat repo/README"
+
+[[level]]
+n = 29
+title = "node 28 -> 29 - what they deleted"
+goal = """
+Another repo (node28-git). The creds were committed and then scrubbed.
+Git never really forgets - check the history.
+"""
+commands = ["git", "ssh"]
+hints = [
+  "Clone it, then git log to see past commits.",
+  "git log -p or git show <commit> reveals what a later commit redacted.",
+]
+solution = "git clone ...; git log -p   # find the removed creds"
+
+[[level]]
+n = 30
+title = "node 29 -> 30 - off the main line"
+goal = """
+Another repo (node29-git). The README says nothing sensitive in
+production - so look off the main branch.
+"""
+commands = ["git", "ssh"]
+hints = [
+  "git branch -a lists all branches, including remotes.",
+  "Check out the dev branch: git checkout dev (or git log origin/dev).",
+]
+solution = "git clone ...; git branch -a; git checkout dev; cat README.md"
+
+[[level]]
+n = 31
+title = "node 30 -> 31 - tagged and stashed"
+goal = """
+Another repo (node30-git). Nothing in the files, logs, or branches this
+time. Somebody stashed it in a tag.
+"""
+commands = ["git", "ssh"]
+hints = [
+  "git tag lists tags.",
+  "git show <tag>",
+]
+solution = "git clone ...; git tag; git show secret"
+
+[[level]]
+n = 32
+title = "node 31 -> 32 - push to reveal"
+goal = """
+Another repo (node31-git). The README says push a specific file to the
+remote and it'll cough up the creds.
+"""
+commands = ["git", "ssh"]
+hints = [
+  "Read README.md: it wants key.txt pushed to master.",
+  ".gitignore may block *.txt - force it: git add -f key.txt.",
+  "Commit and git push origin master; read the server's reply.",
+]
+solution = "git clone ...; echo 'May I come in?' > key.txt; git add -f key.txt; git commit -m x; git push origin master"
+
+[[level]]
+n = 33
+title = "node 32 -> 33 - the uppercase cage"
+goal = """
+Last escape. You land in a shell that shouts everything you type back
+in uppercase, so no command resolves. Find the one thing it won't
+uppercase.
+"""
+commands = ["sh"]
+hints = [
+  "Uppercased command names won't resolve...",
+  "...but $0 (the shell's own name) isn't uppercased. Type: $0",
+  "That drops you to a normal shell as node33; then read the creds.",
+]
+solution = "$0    # spawns a shell; then cat /etc/node_pass/node33"

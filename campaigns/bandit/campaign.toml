@@ -1,0 +1,8 @@
+# The plain OverTheWire skin. Same mechanics, neutral naming.
+name = "bandit"
+story = "The classic OverTheWire linux-fu ladder."
+user_prefix = "bandit"
+pass_dir = "/etc/bandit_pass"
+container = "wargamezr-bandit"
+image = "wargamezr-bandit:slice"
+max_level = 11
