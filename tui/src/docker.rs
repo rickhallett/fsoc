@@ -51,7 +51,7 @@ impl World {
 
     /// Build the argv that drops the player into the shell for a level.
     ///
-    /// Level `n` (n >= 1) is solved while logged in as bandit(n-1) — that
+    /// Level `n` (n >= 1) is solved while logged in as bandit(n-1) - that
     /// stage's goal is to recover bandit n's password. Level 0 is the
     /// bootstrap "get in over SSH" tutorial, so it launches a real SSH
     /// session as bandit0 (password: bandit0).

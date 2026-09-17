@@ -4,20 +4,22 @@ A terminal-native recreation of the [OverTheWire **Bandit**](https://overthewire
 "linux-fu" wargame: a gorgeous Rust TUI on the outside, a **real** Linux
 game world in a Docker container on the inside.
 
-The puzzles are the genuine article — level progression is enforced by
+The puzzles are the genuine article - level progression is enforced by
 actual Unix permissions (setuid binaries, group-readable files, cron jobs
 running as the next user, SSH keys, local daemons), not faked by the UI.
 The only thing that isn't OverTheWire's is the answers: **every password is
 generated fresh at build time**, so nothing here redistributes their secrets.
 
 ```
-┌ wargamezr · bandit · 3/33 cleared · 3 treasure · world ● ┐
-│ ✓ Level  1 · reading a file      │ Level 4 — hidden file │
-│ ✓ Level  2 · a file named dash   │ ...goal...            │
-│ ▸ Level  4 · hidden file         │ useful: ls cd cat find│
-│ 🔒 Level  5 · human-readable      │ hints (1/2 revealed)  │
-└──────────────────────────────────┴───────────────────────┘
++- wargamezr | bandit campaign | 3/33 cleared | 3 treasure | world up +
+| [x] Level  1 - reading a file    | Level 4 - hidden file          |
+| [x] Level  2 - a file named dash | ...goal...                     |
+| [>] Level  4 - hidden file       | useful: ls cd cat find         |
+| [-] Level  5 - human-readable    | hints (1/2 revealed)           |
++----------------------------------+------------------------------+
 ```
+
+Status glyphs are plain ASCII: `[x]` cleared, `[>]` current, `[-]` locked.
 
 ## How it fits together
 
@@ -43,11 +45,11 @@ make play          # launch the TUI
 
 Then, in the TUI:
 
-- `↑`/`↓` — move between levels
-- `⏎` — drop into a shell for the selected level (find the next password)
-- `h` — reveal the next hint · `s` — toggle the spoiler solution
-- `p` — type the password you found; correct answers unlock the next level
-- `r` — re-check the world · `q` — quit
+- `j`/`k` (or arrow keys) - move between levels
+- `Enter` - drop into a shell for the selected level (find the next password)
+- `h` - reveal the next hint; `s` - toggle the spoiler solution
+- `p` - type the password you found; correct answers unlock the next level
+- `r` - re-check the world; `q` - quit
 
 You can always play it the raw way too:
 
@@ -57,12 +59,12 @@ ssh bandit0@localhost -p 2220     # password: bandit0
 
 ## Scope
 
-This build is a **vertical slice**: the world provisions levels **0–11**
+This build is a **vertical slice**: the world provisions levels **0-11**
 (the pure filesystem/searching puzzles) and the TUI, hint system, treasure
-vault, and progression are complete for all 34 level briefs. Levels 12–33
+vault, and progression are complete for all 34 level briefs. Levels 12-33
 have full briefs/hints/solutions and are wired into the UI; their world-side
 setup (SSH keys, TLS daemons, cron jobs, git repos, shell escapes) is the
-next tranche — see `world/setup/plant-levels.sh`, which is already guarded
+next tranche - see `world/setup/plant-levels.sh`, which is already guarded
 by `MAX_LEVEL` so raising it is additive.
 
 ## Design notes

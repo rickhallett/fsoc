@@ -1,4 +1,4 @@
-# wargamezr — build the game world and run the TUI.
+# wargamezr - build the game world and run the TUI.
 CONTAINER ?= bandit
 IMAGE     ?= bandit-world:slice
 PORT      ?= 2220

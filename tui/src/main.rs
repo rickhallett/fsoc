@@ -1,4 +1,4 @@
-//! wargamezr — a terminal-native front-end for a self-hosted, Bandit-style
+//! wargamezr - a terminal-native front-end for a self-hosted, Bandit-style
 //! Linux wargame. The TUI is the frame: level briefs, a hint ladder, a
 //! treasure vault, and a door into a real shell inside the game container.
 mod docker;
@@ -106,13 +106,13 @@ impl App {
     fn submit_password(&mut self) {
         let n = self.current().n;
         if n == 0 {
-            self.status = "Level 0 has no password — just SSH in (Enter).".into();
+            self.status = "Level 0 has no password - just SSH in (Enter).".into();
             self.input.clear();
             self.input_mode = false;
             return;
         }
         if !self.world_running {
-            self.status = "World not running — cannot verify.".into();
+            self.status = "World not running - cannot verify.".into();
             self.input_mode = false;
             return;
         }
@@ -120,9 +120,9 @@ impl App {
             Ok(true) => {
                 self.save.mark_solved(n, self.input.trim().to_string());
                 let _ = self.save.store();
-                self.status = format!("✓ Correct! Level {n} cleared, bandit{n} unlocked.");
+                self.status = format!("[ok] Correct! Level {n} cleared, bandit{n} unlocked.");
             }
-            Ok(false) => self.status = "✗ Not the right password. Keep digging.".into(),
+            Ok(false) => self.status = "[x] Not the right password. Keep digging.".into(),
             Err(e) => self.status = format!("verify error: {e}"),
         }
         self.input.clear();
@@ -136,7 +136,7 @@ impl App {
             return Ok(());
         }
         if !self.world_running {
-            self.status = "World not running — run `make world-up` then press r.".into();
+            self.status = "World not running - run `make world-up` then press r.".into();
             return Ok(());
         }
         let (cmd, args) = self.world.shell_command(n);
@@ -148,7 +148,7 @@ impl App {
         } else {
             format!("bandit{} (level {n})", n - 1)
         };
-        println!("\n\x1b[1;36m── entering {who} ──\x1b[0m");
+        println!("\n\x1b[1;36m-- entering {who} --\x1b[0m");
         println!("\x1b[2m(find the next password, then `exit` / Ctrl-D to return)\x1b[0m\n");
         let _ = Command::new(&cmd).args(&args).status();
         enable_raw_mode()?;
@@ -197,7 +197,7 @@ fn check(campaign: &Campaign, world: &World) -> Result<()> {
         match world.password_of(lvl.n) {
             Ok(pw) if pw.len() >= 8 => {
                 provisioned += 1;
-                println!("  level {:>2}  password reachable ({}…)", lvl.n, &pw[..4]);
+                println!("  level {:>2}  password reachable ({}...)", lvl.n, &pw[..4]);
             }
             Ok(_) => println!("  level {:>2}  password too short?", lvl.n),
             Err(_) => println!("  level {:>2}  not provisioned in this world build", lvl.n),
@@ -295,23 +295,23 @@ fn ui(f: &mut Frame, app: &App) {
 fn render_header(f: &mut Frame, area: Rect, app: &App) {
     let total = app.campaign.levels.len().saturating_sub(1); // exclude intro
     let solved = app.save.solved.len();
-    let dot = if app.world_running { "●" } else { "○" };
+    let dot = if app.world_running { "up" } else { "down" };
     let world_color = if app.world_running { GREEN } else { RED };
     let line = Line::from(vec![
         Span::styled("  wargamezr ", Style::default().fg(ACCENT).add_modifier(Modifier::BOLD)),
         Span::styled(
-            format!("· {} campaign ", app.campaign.campaign),
+            format!("| {} campaign ", app.campaign.campaign),
             Style::default().fg(FG),
         ),
         Span::styled(
-            format!("· {solved}/{total} cleared "),
+            format!("| {solved}/{total} cleared "),
             Style::default().fg(GREEN),
         ),
         Span::styled(
-            format!("· {} treasure ", app.save.treasure.len()),
+            format!("| {} treasure ", app.save.treasure.len()),
             Style::default().fg(GOLD),
         ),
-        Span::styled(format!("· world {dot}"), Style::default().fg(world_color)),
+        Span::styled(format!("| world {dot}"), Style::default().fg(world_color)),
     ]);
     let p = Paragraph::new(line).block(
         Block::bordered()
@@ -330,16 +330,16 @@ fn render_level_list(f: &mut Frame, area: Rect, app: &App) {
             let unlocked = app.save.is_unlocked(lvl.n);
             let solved = app.save.is_solved(lvl.n);
             let (glyph, color) = if solved {
-                ("✓", GREEN)
+                ("[x]", GREEN)
             } else if !unlocked {
-                ("🔒", DIM)
+                ("[-]", DIM)
             } else {
-                ("▸", ACCENT)
+                ("[>]", ACCENT)
             };
             let label = if lvl.n == 0 {
-                "Level 0 · Getting in".to_string()
+                "Level 0 - Getting in".to_string()
             } else {
-                format!("Level {:>2} · {}", lvl.n, short_title(&lvl.title))
+                format!("Level {:>2} - {}", lvl.n, short_title(&lvl.title))
             };
             ListItem::new(Line::from(vec![
                 Span::styled(format!(" {glyph} "), Style::default().fg(color)),
@@ -419,11 +419,11 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
         lower.push(Line::from(vec![
             Span::styled("> ", Style::default().fg(ACCENT)),
             Span::styled(app.input.clone(), Style::default().fg(GOLD)),
-            Span::styled("▏", Style::default().fg(ACCENT)),
+            Span::styled("_", Style::default().fg(ACCENT)),
         ]));
     } else if app.show_solution {
         lower.push(Line::from(Span::styled(
-            "SPOILER — intended solution:",
+            "SPOILER - intended solution:",
             Style::default().fg(RED).add_modifier(Modifier::BOLD),
         )));
         lower.push(Line::from(""));
@@ -434,7 +434,7 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
         let used = app.save.hints_used(lvl.n);
         let total = lvl.hints.len();
         lower.push(Line::from(Span::styled(
-            format!("hints  ({used}/{total} revealed — press h for more)"),
+            format!("hints  ({used}/{total} revealed - press h for more)"),
             Style::default().fg(DIM),
         )));
         lower.push(Line::from(""));
@@ -465,7 +465,7 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_help(f: &mut Frame, area: Rect, app: &App) {
-    let keys = "↑/↓ move   ⏎ enter level   h hint   s solution   p password   r refresh   q quit";
+    let keys = "j/k move   Enter shell   h hint   s solution   p password   r refresh   q quit";
     let text = Line::from(vec![
         Span::styled(format!(" {}  ", app.status), Style::default().fg(GOLD)),
     ]);
@@ -481,6 +481,6 @@ fn render_help(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn short_title(t: &str) -> String {
-    // strip the "Level X → Y — " prefix for a tidy list label
-    t.rsplit("— ").next().unwrap_or(t).to_string()
+    // strip the "Level X -> Y - " prefix for a tidy list label
+    t.rsplit(" - ").next().unwrap_or(t).to_string()
 }

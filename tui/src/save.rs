@@ -44,7 +44,7 @@ impl Save {
     }
 
     /// The intro (0) and first puzzle (1) are always open. Any later level
-    /// is unlocked once the previous one is solved — because you need the
+    /// is unlocked once the previous one is solved - because you need the
     /// previous level's treasure (a password) to log in for this one.
     pub fn is_unlocked(&self, n: u32) -> bool {
         n <= 1 || self.is_solved(n) || self.is_solved(n - 1)
