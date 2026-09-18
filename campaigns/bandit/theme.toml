@@ -18,7 +18,7 @@ enabled = false
 enabled = false
 
 [labels]
-brand = "wargamezr"
+brand = "fsoc"
 
 [comms]
 handler = "ops"

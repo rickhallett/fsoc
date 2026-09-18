@@ -1,4 +1,4 @@
-//! wargamezr - a terminal-native, self-hosted Linux wargame.
+//! fsoc - a terminal-native, self-hosted Linux wargame.
 //!
 //! The surface *is* a terminal: a real PTY into the game-world container,
 //! rendered faithfully (the box's own colours) in a dark frame. You live at
@@ -438,7 +438,7 @@ fn campaign_name() -> String {
             return v.to_string();
         }
     }
-    std::env::var("WARGAMEZR_CAMPAIGN").unwrap_or_else(|_| "fsociety".into())
+    std::env::var("FSOC_CAMPAIGN").unwrap_or_else(|_| "fsociety".into())
 }
 
 fn campaign_dir(name: &str) -> Result<PathBuf> {
@@ -458,7 +458,7 @@ fn campaign_dir(name: &str) -> Result<PathBuf> {
 /// Headless doctor: confirm the world is reachable and every provisioned
 /// user has a recoverable password.
 fn check(config: &CampaignConfig, campaign: &Campaign) -> Result<()> {
-    println!("wargamezr --check  (campaign: {})", config.name);
+    println!("fsoc --check  (campaign: {})", config.name);
     if !config.story.is_empty() {
         println!("story    : {}", config.story);
     }

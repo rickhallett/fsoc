@@ -1,11 +1,11 @@
 [package]
-name = "wargamezr"
+name = "fsoc"
 version = "0.1.0"
 edition = "2021"
-description = "A terminal-native front-end for a self-hosted Bandit-style Linux wargame"
+description = "A terminal-native Linux wargame that is a game, simulator and teacher at once"
 
 [[bin]]
-name = "wargamezr"
+name = "fsoc"
 path = "src/main.rs"
 
 [dependencies]

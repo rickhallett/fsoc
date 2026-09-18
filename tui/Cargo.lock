@@ -178,6 +178,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
 
 [[package]]
+name = "fsoc"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "portable-pty",
+ "ratatui",
+ "serde",
+ "toml",
+ "vt100",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -812,18 +824,6 @@ checksum = "2e369bee1b05d510a7b4ed645f5faa90619e05437111783ea5848f28d97d3c2e"
 dependencies = [
  "proc-macro2",
  "quote",
-]
-
-[[package]]
-name = "wargamezr"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "portable-pty",
- "ratatui",
- "serde",
- "toml",
- "vt100",
 ]
 
 [[package]]

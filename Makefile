@@ -1,4 +1,4 @@
-# wargamezr - build the game world and run the TUI, per campaign.
+# fsoc - build the game world and run the TUI, per campaign.
 #
 # Pick a campaign with CAMPAIGN=<name> (default: fsociety). The world's
 # user prefix / pass dir / container / image are read from that campaign's
@@ -20,7 +20,7 @@ PORT     ?= 2220
 .PHONY: help world-build world-up world-down world-logs check play build fmt clean
 
 help:
-	@echo "wargamezr  (CAMPAIGN=$(CAMPAIGN))"
+	@echo "fsoc  (CAMPAIGN=$(CAMPAIGN))"
 	@echo "  make world-up   [CAMPAIGN=bandit|fsociety]   build + run the world"
 	@echo "  make world-down [CAMPAIGN=...]               stop + remove the world"
 	@echo "  make check      [CAMPAIGN=...]               headless doctor"
@@ -50,10 +50,10 @@ build:
 	cd tui && cargo build --release
 
 check: build
-	./tui/target/release/wargamezr --campaign $(CAMPAIGN) --check
+	./tui/target/release/fsoc --campaign $(CAMPAIGN) --check
 
 play: build
-	./tui/target/release/wargamezr --campaign $(CAMPAIGN)
+	./tui/target/release/fsoc --campaign $(CAMPAIGN)
 
 fmt:
 	cd tui && cargo fmt

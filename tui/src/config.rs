@@ -47,7 +47,7 @@ impl CampaignConfig {
     }
     pub fn container(&self) -> String {
         if self.container.is_empty() {
-            format!("wargamezr-{}", self.name)
+            format!("fsoc-{}", self.name)
         } else {
             self.container.clone()
         }
@@ -55,7 +55,7 @@ impl CampaignConfig {
     #[allow(dead_code)]
     pub fn image(&self) -> String {
         if self.image.is_empty() {
-            format!("wargamezr-{}:slice", self.name)
+            format!("fsoc-{}:slice", self.name)
         } else {
             self.image.clone()
         }

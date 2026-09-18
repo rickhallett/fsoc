@@ -1,15 +1,15 @@
-# wargamezr
+# fsoc
 
-A terminal-native, self-hosted Linux wargame - a faithful recreation of the
-[OverTheWire **Bandit**](https://overthewire.org/wargames/bandit/) "linux-fu"
-ladder, wearing an fsociety mask.
+A terminal-native Linux wargame that is a **game, a simulator and a teacher at
+once** - a real shell inside a self-hosted world, wearing an fsociety mask.
 
-**The surface is a terminal, not an app.** You get a real shell inside a
-Docker "world" and pivot node to node yourself (`ssh`), exactly like the real
-thing. The screen is a real PTY in a dark frame - the box ships with a themed shell
-(coloured prompt, tuned ls colours), rendered faithfully. The story
-arrives as comms from a handler and narration at the seams. No menus, no
-panels, no progress bars - the tool recedes.
+**The surface is a terminal, not an app.** You get a real shell inside a Docker
+world and pivot machine to machine yourself (`ssh`), exactly like the real
+thing. The screen is a real PTY in a dark frame - each box ships with a themed
+shell (coloured prompt, tuned ls colours), rendered faithfully. The story
+arrives as comms from a handler. The only progression is your own skill as a
+terminal user and the story itself: **no menus, no points, no levels, no hint
+buttons** - the tool recedes.
 
 The puzzles are the genuine article: progression is enforced by real Unix
 permissions (setuid, group-readable files, cron jobs running as the next user,
@@ -18,7 +18,6 @@ fresh at build time**, so nothing here redistributes anyone's answers.
 
 ```
 <darlene> you're on the jump box. don't linger.
--- objective: left in the open --
 <darlene> the creds for the next node are in a file called readme...
 
   node0@ecorp:~$ cat readme
@@ -26,8 +25,20 @@ fresh at build time**, so nothing here redistributes anyone's answers.
   node0@ecorp:~$ ssh node1@localhost -p 2220
   ...
 
-  node1  .  fsociety  .  F1 leak  .  F2 job  .  ^G quit  .  or type `exit`
+  node1  .  fsociety  .  F2 job  .  ^G quit  .  or type `exit`
 ```
+
+## Where this is going
+
+The current build is a **vertical slice**: a faithful, honest recreation of the
+[OverTheWire **Bandit**](https://overthewire.org/wargames/bandit/) linux-fu
+ladder. The direction is bigger - an **inhabited world** of a few interconnected
+machines where operations (not password puzzles) drive a detective story,
+teaching hides inside the machinery, and grading is invisible (the world simply
+reacts when the state is right). See [`docs/CONTENT_SPEC.md`](docs/CONTENT_SPEC.md)
+for the authoring model: the skill spine, the invisible invariant grader, the
+no-hint contract, per-host hardware profiles, and the bug = evidence = lesson
+fixture craft.
 
 ## Two skins, one engine
 

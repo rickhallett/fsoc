@@ -160,9 +160,11 @@ never the culprit, motive, or story facts.
 - **Few hosts, deep relationships.** Machines have a purpose, an operational
   history, and traces of the people who use them. Later discoveries change how
   earlier evidence reads.
-- **Your workstation persists** across a campaign — aliases, notes, scripts,
-  `fsoc` choices accumulate; remote machines stay constrained. Tool scarcity is
-  a diegetic fact (a stripped recovery box has only BusyBox), never a nag.
+- **Your workstation is another machine in the world**, not the host — its own
+  VM/container that persists across a campaign. Your aliases, notes, scripts and
+  `fsoc` choices accumulate *there*; the real host is never touched. Remote
+  machines stay constrained; tool scarcity is a diegetic fact (a stripped
+  recovery box has only BusyBox), never a nag.
 - **Machines have a hardware profile.** Each host is allocated resources that
   fit what it *is* — memory, CPU, disk/inode budget, pid limit — set per
   container (compose `mem_limit` / `cpus` / `pids_limit` / sized tmpfs). A
