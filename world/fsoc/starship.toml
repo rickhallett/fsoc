@@ -1,0 +1,28 @@
+# fsoc starship - keeps "<user>@<host>" at the prompt start so wargamezr's
+# node-detection keeps working. ASCII-safe (no nerd font in the box).
+add_newline = false
+format = "$username$hostname$directory$git_branch$character"
+
+[username]
+show_always = true
+style_user = "yellow"
+style_root = "red"
+format = "[$user]($style)"
+
+[hostname]
+ssh_only = false
+style = "173"
+format = "@[$hostname]($style) "
+
+[directory]
+style = "245"
+truncation_length = 3
+
+[git_branch]
+symbol = "git:"
+style = "179"
+format = "[$symbol$branch]($style) "
+
+[character]
+success_symbol = "[\\$](bold 179)"
+error_symbol = "[\\$](bold red)"

@@ -79,6 +79,7 @@ enter_banner  = "-- jacking into {who} --"
 handler = "darlene"
 opening = [
   "you're on the jump box. don't linger.",
+  "the box is bare. `fsoc` for the kit - cosmetic's harmless, power is training wheels.",
   "the next node's creds are on it somewhere. find them, ssh in, keep moving.",
 ]
 narration = [

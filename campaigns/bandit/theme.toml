@@ -24,5 +24,6 @@ brand = "wargamezr"
 handler = "ops"
 opening = [
   "connected. find the password for the next level and ssh in.",
+  "run `fsoc` for optional modern tools (some make the levels trivial).",
 ]
 narration = []

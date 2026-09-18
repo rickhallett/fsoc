@@ -7,3 +7,7 @@ alias ls='ls --color=auto'
 alias ll='ls -la --color=auto'
 alias grep='grep --color=auto'
 export LS_COLORS='di=1;38;5;179:ln=38;5;109:ex=1;38;5;71:*.gz=38;5;96:*.bz2=38;5;96:*.tar=38;5;96:*.txt=38;5;250'
+
+# fsoc: expose per-node installed tools + their integrations (bare until installed)
+export PATH="$HOME/.local/bin:$PATH"
+[ -r "$HOME/.fsoc/init.bash" ] && source "$HOME/.fsoc/init.bash"

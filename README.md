@@ -91,6 +91,40 @@ additive.
 Known edge: full-screen curses programs (`vi`, `more`) render through the vt100
 emulator; line-oriented work (the whole current slice) is exact.
 
+## `fsoc` - the in-world package manager
+
+The box is **bare** by default - only the tools the wargame itself needs. A
+`fsoc` command (fsociety's toolkit) lets you rice it out in tiers, so modern
+tools never trivialize the puzzles unless you ask them to:
+
+| Tier | Tools | Effect on the wargame |
+|---|---|---|
+| `cosmetic` | starship, bat, glow, gum, tldr, fastfetch | none - prompt/colours/viewing |
+| `comfort` | fzf, zoxide, yazi, dust | eases navigation, hands you nothing |
+| `power` | eza (over `ls`), rg, fd | shortcuts the search/find jobs - *assisted mode* |
+| `dev` | mise, gh (+ runtimes via mise) | build tooling, irrelevant to the jobs |
+
+```sh
+fsoc                      # status: what's on
+fsoc list                 # tiers and what they do
+fsoc install cosmetic     # then `exec bash` to load it
+fsoc install power        # Darlene will judge you
+fsoc remove power         # revert
+fsoc reset                # back to bare
+```
+
+Mechanics that keep it honest:
+- Tools live off-`PATH` in `/opt/fsoc/bin`; `install` symlinks a tier into
+  `~/.local/bin` and wires its shell integration. So `power` really is opt-in.
+- **Per-node**: what you install stays on that box. Pivot and you start bare.
+- `power` never shadows `grep`/`find`/`cat`, so scripts and the core lessons
+  still work by name.
+- The starship prompt keeps `<user>@<host>`, so objective tracking survives.
+- `fsoc install ai`? Darlene refuses. Do it yourself, friend.
+
+Tools are fetched at image-build time; any that don't resolve for your arch are
+reported by `fsoc` as unresolved rather than breaking the tier.
+
 ## Making your own skin
 
 1. `cp -r campaigns/bandit campaigns/mine`

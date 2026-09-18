@@ -10,7 +10,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
         openssh-server \
         coreutils bsdmainutils binutils xxd file findutils grep gzip bzip2 tar \
         openssl netcat-openbsd nmap git cron vim less \
-        ca-certificates \
+        ca-certificates curl unzip \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /run/sshd
@@ -24,6 +24,14 @@ ARG USER_PREFIX=bandit
 ARG PASS_DIR=/etc/bandit_pass
 ARG MAX_LEVEL=11
 ENV USER_PREFIX=${USER_PREFIX} PASS_DIR=${PASS_DIR} MAX_LEVEL=${MAX_LEVEL}
+
+# fsoc toolkit: fetch modern CLI tools off-PATH into /opt/fsoc/bin and install
+# the `fsoc` package manager. Nothing is on PATH until a player runs `fsoc
+# install <tier>`, so the box stays bare (and the wargame honest) by default.
+COPY fsoc/ /opt/fsoc/
+RUN chmod +x /opt/fsoc/fetch-tools.sh /opt/fsoc/fsoc \
+    && /opt/fsoc/fetch-tools.sh \
+    && ln -sf /opt/fsoc/fsoc /usr/local/bin/fsoc
 
 COPY setup/ /opt/wargame/setup/
 RUN chmod +x /opt/wargame/setup/*.sh && /opt/wargame/setup/provision.sh
