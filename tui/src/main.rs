@@ -18,7 +18,6 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Paragraph, Wrap};
 use ratatui::{DefaultTerminal, Frame};
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::Duration;
@@ -40,7 +39,6 @@ struct App {
     theme: Theme,
     term: Term,
     comms: Vec<Comm>,
-    hints_used: HashMap<u32, usize>,
     current_user: Option<u32>,
     narr_idx: usize,
     tick: u64,
@@ -101,24 +99,6 @@ impl App {
         self.emit_job();
     }
 
-    fn reveal_hint(&mut self) {
-        let n = self.job_level_n();
-        let (total, hint) = match self.level_by_n(n) {
-            Some(l) => (l.hints.len(), l.hints.clone()),
-            None => (0, vec![]),
-        };
-        if total == 0 {
-            return;
-        }
-        let used = self.hints_used.entry(n).or_insert(0);
-        if *used < total {
-            let h = hint[*used].clone();
-            *used += 1;
-            self.push(Kind::Handler, format!("(leak) {h}"));
-        } else {
-            self.push(Kind::Handler, "that's everything i've got. you're on your own.");
-        }
-    }
 
     fn show_job(&mut self) {
         self.push(Kind::Sys, "-- the job --");
@@ -176,7 +156,6 @@ fn run(
         theme,
         term,
         comms: Vec::new(),
-        hints_used: HashMap::new(),
         current_user: None,
         narr_idx: 0,
         tick: 0,
@@ -228,10 +207,6 @@ fn handle_key(app: &mut App, key: ratatui::crossterm::event::KeyEvent) {
         KeyCode::Char('g') if ctrl => {
             // panic-escape: works even if a full-screen program is wedged
             app.quit = true;
-            return;
-        }
-        KeyCode::F(1) => {
-            app.reveal_hint();
             return;
         }
         KeyCode::F(2) => {
@@ -432,7 +407,7 @@ fn render_status(f: &mut Frame, area: Rect, app: &App) {
         .map(|k| format!("{}{}", app.config.user_prefix, k))
         .unwrap_or_else(|| "...".into());
     let line = Line::from(Span::styled(
-        format!("{node}  .  {}  .  F1 leak  .  F2 job  .  ^G quit  .  or type `exit`", app.campaign.campaign),
+        format!("{node}  .  {}  .  F2 job  .  ^G quit  .  or type `exit`", app.campaign.campaign),
         Style::default().fg(t.dim()),
     ));
     f.render_widget(
