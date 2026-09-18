@@ -40,6 +40,29 @@ for the authoring model: the skill spine, the invisible invariant grader, the
 no-hint contract, per-host hardware profiles, and the bug = evidence = lesson
 fixture craft.
 
+### The world network (foundation)
+
+The first piece of that direction exists: a real multi-machine network you
+pivot across, each host a container on a shared network with its own hardware
+profile.
+
+```sh
+make net-up      # build the machine image + start the network
+make net-play    # drop onto the workstation as `operator`
+make net-down    # tear it down
+```
+
+You land on `workstation` (2 cores, roomy) and pivot with a baked ops key:
+`ssh relay` (1 core, cramped), `ssh archive` (1 core, small); chains like
+`ssh relay` then `ssh archive` work too. `nproc` reflects each box's `cpuset`;
+`mem_limit`/`pids_limit` are enforced. (Memory *reporting* - `free`, `df` - will
+need `lxcfs` to show the cap instead of the host's; enforcement already holds.)
+
+Still to come on top of this: the world daemon (real state -> diegetic
+consequence), authored operations, and the fsoc terminal frame over the
+network. The single-container Bandit ladder (`make world-up` / `make play`)
+remains the playable slice meanwhile.
+
 ## Two skins, one engine
 
 The narrative and look are a swappable **campaign** over the *same* mechanics:

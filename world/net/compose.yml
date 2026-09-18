@@ -1,0 +1,40 @@
+# The fsoc world as a small network of real machines. Each is the same image
+# with its own hostname and hardware profile. `cpuset` sets how many cores the
+# box *sees* (nproc reflects it); mem_limit/pids_limit are enforced. You start
+# on the workstation and pivot: `ssh relay`, `ssh archive`.
+name: fsoc-world
+
+networks:
+  fsocnet:
+    driver: bridge
+
+services:
+  workstation:
+    image: fsoc-machine:slice
+    container_name: fsoc-workstation
+    hostname: workstation
+    networks: [fsocnet]
+    cpuset: "0-1"        # roomy: 2 cores
+    mem_limit: 1g
+    pids_limit: 512
+    tty: true
+
+  relay:
+    image: fsoc-machine:slice
+    container_name: fsoc-relay
+    hostname: relay
+    networks: [fsocnet]
+    cpuset: "0"          # cramped: 1 core
+    mem_limit: 256m
+    pids_limit: 128
+    tty: true
+
+  archive:
+    image: fsoc-machine:slice
+    container_name: fsoc-archive
+    hostname: archive
+    networks: [fsocnet]
+    cpuset: "0"          # old, small
+    mem_limit: 192m
+    pids_limit: 128
+    tty: true

@@ -60,3 +60,25 @@ fmt:
 
 clean:
 	cd tui && cargo clean
+
+# --- world network (the interconnected world) ---
+NET = world/net/compose.yml
+MACHINE_IMAGE = fsoc-machine:slice
+
+.PHONY: net-build net-up net-down net-play net-ps
+
+net-build:
+	docker build -t $(MACHINE_IMAGE) -f world/machine/Dockerfile world
+
+net-up: net-build
+	docker compose -f $(NET) up -d
+	@echo "world up. enter: make net-play  (start on workstation, then: ssh relay / ssh archive)"
+
+net-down:
+	docker compose -f $(NET) down
+
+net-ps:
+	docker compose -f $(NET) ps
+
+net-play:
+	docker exec -it fsoc-workstation su - operator
